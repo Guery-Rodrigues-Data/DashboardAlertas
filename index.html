@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard de Alertas — Protótipo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+     <div class="topbar-inner">
+      <img src="assets/img/reg-80e07.svg" alt="Antares" width="105" height="32">
+      <div class="topbar-actions">
+        <img src="assets/img/reg-1e084.svg" alt="Notificações" width="24" height="24">
+        <div class="topbar-user">
+          <div class="avatar">
+            <img src="assets/img/reg-dd990.svg" alt="" width="32" height="32">
+            <span>D</span>
+          </div>
+        </div>
+        <div class="topbar-exit">
+          <img src="assets/img/reg-939b9.svg" alt="Sair" width="24" height="24">
+        </div>
+      </div>
+     </div>
+    </header>
+
+    <nav class="submenu">
+      <div class="tabs" id="tabs"></div>
+      <div class="filters">
+        <div class="filter-wrap">
+          <button type="button" class="filter-btn" id="btnData" aria-expanded="false" aria-controls="dateModal">
+            <span class="ico16"><img src="assets/img/reg-25dca.svg" alt="" width="16" height="16"></span>
+            <span id="dataLabel">Últimos 30 Dias</span>
+            <span class="ico12"><img src="assets/img/reg-739b6.svg" alt="" width="16" height="16"></span>
+          </button>
+          <div class="popover date-modal" id="dateModal" hidden></div>
+        </div>
+        <div class="filter-wrap">
+          <button type="button" class="filter-btn" id="btnFiltros" aria-expanded="false" aria-controls="filterModal">
+            <span class="ico16"><img src="assets/img/reg-45af1.svg" alt="" width="16" height="16"></span>
+            <span>Filtros</span>
+            <span class="filter-badge" id="filtroBadge" hidden></span>
+            <span class="ico12"><img src="assets/img/reg-0fea3.svg" alt="" width="16" height="16"></span>
+          </button>
+          <div class="popover filter-modal" id="filterModal" hidden></div>
+        </div>
+      </div>
+    </nav>
+
+    <main id="view"></main>
+  </div>
+
+  <script src="assets/data.js"></script>
+  <script src="assets/modelo.js"></script>
+  <script src="assets/app.js"></script>
+</body>
+</html>
