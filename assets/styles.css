@@ -366,3 +366,50 @@ main { display: flex; flex-direction: column; gap: 16px; }
 .flt-tools { display: flex; justify-content: flex-end; min-height: 18px; padding: 2px 0; }
 .flt-drop .flt-check { margin: 0; }
 .flt-drop .flt-list { max-height: 168px; }
+.mx-cell.n { background: var(--neutral-200); color: var(--text-default); font-weight: 600; }
+/* hover da aba Dispositivo: lista dos dispositivos que falharam */
+.chart-tip.largo { min-width: 210px; }
+.tip-titulo { font-weight: 700; font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-disabled); }
+.tip-row.tip-dev { gap: 8px; font-size: 11px; }
+.tip-dev .tip-id { font-weight: 600; color: var(--ink); }
+.tip-dev .tip-tipo { color: var(--text-enabled); font-size: 10.5px; }
+.tip-vazio { font-size: 11px; color: var(--text-disabled); }
+.tip-mais { font-size: 10.5px; color: var(--text-enabled); }
+.kpi-big.uma-cor small { color: inherit; } /* "5 a 8 anos" inteiro na mesma cor (no Figma as palavras eram cinza) */
+/* Top Dispositivos: o cinza claro do Figma (#a3a3a3, contraste ~2,5:1) ficava difícil de ler.
+   Código quase preto (#1e1b20), tipo cinza bem escuro (#404041) e "falhas" #6e6e6e. */
+.brow.escuro .brow-name { color: var(--ink); }
+.brow.escuro .tag { color: var(--text-default); }
+.brow.escuro .brow-val .u { color: var(--text-enabled); }
+/* pizza: o % só aparece na fatia sob o mouse; as outras esmaecem um pouco */
+.pie > .pct { pointer-events: none; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12); }
+.pie .fatia { cursor: pointer; transition: opacity 0.12s; }
+.pie:has(.fatia:hover) .fatia:not(:hover) { opacity: 0.6; }
+/* caixa flutuante de "Outros alarmes" (reaproveita o visual da caixa do gráfico) */
+.chart-tip.flutuante { position: fixed; top: 0; left: 0; transform: none; min-width: 200px; z-index: 60; }
+.tem-outros { cursor: help; }
+.mx-col.tem-outros span { text-decoration: underline dotted; text-underline-offset: 3px; }
+
+/* ---------- seleção por clique (aba Dispositivo) ---------- */
+.chips-sel { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 28px; }
+.chips-sel.dica { font-size: 11px; color: var(--text-enabled); padding: 0 4px; }
+.chips-rotulo { font-weight: 700; font-size: 11px; color: var(--text-enabled); text-transform: uppercase; letter-spacing: 0.04em; }
+.chip-sel { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border: 1px solid var(--error-200); border-radius: 99px; background: var(--error-100); color: var(--text-brand); font: 600 11px "Roboto", sans-serif; cursor: pointer; }
+.chip-sel b { font-weight: 700; }
+.chip-sel:hover { background: #f4c9c5; }
+[data-sel] { cursor: pointer; }
+.brow[data-sel] { padding: 4px 6px; margin: -4px -6px; border-radius: 6px; transition: background 0.12s, opacity 0.12s; }
+.brow[data-sel]:hover { background: var(--neutral-100); }
+.brow.sel-on { background: #fdf3f2; box-shadow: inset 3px 0 0 var(--icon-brand); }
+.brow.sel-off { opacity: 0.45; }
+.legend-item[data-sel] { padding: 4px 6px; margin: 0 -6px; border-radius: 6px; }
+.legend-item[data-sel]:hover { background: var(--neutral-100); }
+.legend-item.sel-off { opacity: 0.45; }
+.legend-item.sel-on { background: #fdf3f2; box-shadow: inset 3px 0 0 var(--icon-brand); }
+.pie .fatia.sel-off { opacity: 0.35; }
+.pie .fatia.sel-on { filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.35)); }
+.mx-col[data-sel]:hover { background: var(--neutral-200); }
+.mx-col.sel-on { background: var(--error-100); color: var(--text-brand); }
+.mx-cell.row-name[data-sel]:hover { background: #d4d4d4; }
+.mx-line.body.sel-off { opacity: 0.4; }
+.mx-line.body.sel-on-linha .mx-cell.row-name { background: var(--error-100); color: var(--text-brand); box-shadow: inset 3px 0 0 var(--icon-brand); }

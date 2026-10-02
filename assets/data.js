@@ -131,7 +131,7 @@ DASH.subtitulos = {
   volumeAlarmes: "Quantidade de alarmes por dia, separada por criticidade",
   topAlarmes: "Tipos de alarme com mais ocorrências no período",
   duracao: "Tempo médio que cada tipo de alarme permanece ativo",
-  volumeErros: "Quantidade de falhas de dispositivos por dia, separada por criticidade",
+  volumeErros: "Falhas de dispositivos no período; passe o mouse para ver quais dispositivos falharam",
   topDispositivos: "Dispositivos com mais falhas no período",
   faixaIdade: "Falhas agrupadas pelo tempo de uso do dispositivo",
   tipoDispositivo: "Participação de cada tipo de dispositivo no total de falhas",
