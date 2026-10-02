@@ -15,9 +15,10 @@ const ROTAS = [
 
 /* Estado de tela: página de cada lista paginada e aba da matriz da Região. */
 const estado = {
-  pag: { subareas: 0, corredores: 0, topDisp: 0, tipos: 0, fabricantes: 0, modelos: 0, matriz: 0 },
+  pag: { subareas: 0, corredores: 0, topDisp: 0, tipos: 0, fabricantes: 0, modelos: 0, matriz: 0, topAlarmes: 0, duracao: 0, matrizRegiao: 0 },
   selecao: MODELO.selecaoVazia(), // cliques na tela (aba Dispositivo): tipo, fabricante, modelo, faixa, dispositivo, alarme
-  modoVolume: "criticidade", // gráfico de volume: "criticidade" (4 linhas) ou "total" (1 linha)
+  modoVolume: "criticidade",
+  modoDuracao: "media", // cartão de duração dos alarmes: "media" (por ocorrência) ou "total" (tempo total em alarme) // gráfico de volume: "criticidade" (4 linhas) ou "total" (1 linha)
   totalPag: {}, // nº de páginas das listas dinâmicas (preenchido ao desenhar a tela)
   matrizRegiao: "subarea",
 };
@@ -86,9 +87,9 @@ function paginacao(chave, atual, total, w600 = false) {
 }
 
 /* Linhas de barra em três formatos que o Figma usa. */
-function linhaFalhas({ n, extra, f, w, c, vermelho }, { w64 = true, gap = 8 } = {}) {
+function linhaFalhas({ n, extra, f, w, c, vermelho, sel }, { w64 = true, gap = 8 } = {}) {
   return `
-    <div class="brow">
+    <div class="brow slate${classeSel(sel)}"${attrSel(sel)}>
       <div class="brow-top">
         <div class="brow-name" style="gap:${gap}px"><span>${n}</span>${extra ? `<span class="tag">${extra}</span>` : ""}</div>
         <span class="brow-val ${w64 ? "w64" : ""}"><span class="n">${f} </span><span class="u">falhas</span></span>
@@ -96,9 +97,9 @@ function linhaFalhas({ n, extra, f, w, c, vermelho }, { w64 = true, gap = 8 } = 
       ${barra(c, w)}
     </div>`;
 }
-function linhaRegiao({ n, ativos, f, w, c }) {
+function linhaRegiao({ n, ativos, f, w, c, sel }) {
   return `
-    <div class="brow">
+    <div class="brow slate${classeSel(sel)}"${attrSel(sel)}>
       <div class="brow-top">
         <div class="brow-name lh125"><span class="nm">${n}</span><span class="tag b12">• ${ativos} Ativos</span></div>
         <span class="brow-val"><span class="n">${f} </span><span class="u">falhas</span></span>
@@ -144,12 +145,12 @@ function linhaModelo({ n, fab, f, w, c, sel }) {
       ${barra(c, w)}
     </div>`;
 }
-function linhaDuracao({ n, v, u, w, c }) {
+function linhaDuracao({ n, v, u, w, c, sel, auto }) {
   return `
-    <div class="brow">
+    <div class="brow slate${classeSel(sel)}"${attrSel(sel)}>
       <div class="brow-top">
         <div class="brow-name"><span>${n}</span></div>
-        <span class="brow-val w64"><span class="n">${v} </span><span class="u">${u}</span></span>
+        <span class="brow-val${auto ? "" : " w64"}"><span class="n">${v} </span><span class="u">${u}</span></span>
       </div>
       ${barra(c, w)}
     </div>`;
@@ -214,12 +215,13 @@ function graficoLinhas(spec) {
 
 // Hover da aba Dispositivo: quais dispositivos falharam naquele ponto (até 6; o resto vira "+ N").
 const MAX_DISP_TIP = 6;
-function htmlListaTip(lista) {
-  if (!lista.length) return `<div class="tip-sep"></div><div class="tip-vazio">Nenhum dispositivo com falha</div>`;
+const ROTULO_LISTA_DISP = { sing: "dispositivo", plur: "dispositivos", vazio: "Nenhum dispositivo com falha" };
+function htmlListaTip(lista, rot = ROTULO_LISTA_DISP) {
+  if (!lista.length) return `<div class="tip-sep"></div><div class="tip-vazio">${rot.vazio}</div>`;
   const linhas = lista.slice(0, MAX_DISP_TIP).map((d) =>
-    `<div class="tip-row tip-dev"><span class="tip-id">${d.n}</span><span class="tip-tipo">${d.tipo}</span><b>${d.f}</b></div>`).join("");
+    `<div class="tip-row tip-dev"><span class="tip-id">${d.n}</span>${d.tipo ? `<span class="tip-tipo">${d.tipo}</span>` : ""}<b>${d.f}</b></div>`).join("");
   const mais = lista.length - MAX_DISP_TIP;
-  return `<div class="tip-sep"></div><div class="tip-titulo">${lista.length} ${lista.length === 1 ? "dispositivo" : "dispositivos"}</div>${linhas}${mais > 0 ? `<div class="tip-mais">+ ${mais} ${mais === 1 ? "dispositivo" : "dispositivos"}</div>` : ""}`;
+  return `<div class="tip-sep"></div><div class="tip-titulo">${lista.length} ${lista.length === 1 ? rot.sing : rot.plur}</div>${linhas}${mais > 0 ? `<div class="tip-mais">+ ${mais} ${mais === 1 ? rot.sing : rot.plur}</div>` : ""}`;
 }
 
 // Caixa flutuante (position: fixed, não é cortada pela matriz) com a lista de alarmes dentro de "Outros alarmes".
@@ -254,7 +256,7 @@ function posicionarGrafico(canvas, i, comTip) {
   const linha = (s, v, extra = "") => `<div class="tip-row${extra}"><span class="tip-dot" style="background:${s.cor}"></span><span>${s.n}</span><b>${fmtValor(spec, v)}</b></div>`;
   // no modo Total, a caixa mostra o total e, abaixo, a composição por criticidade
   const detalhe = spec.detalhe ? `<div class="tip-sep"></div>${SERIES_VOLUME.map((s) => linha(s, spec.detalhe[s.n][i], " tip-sub")).join("")}` : "";
-  tip.innerHTML = `<strong>${spec.rotulosTip[i]}</strong>${series.map((s) => linha(s, spec.valores[s.n][i])).join("")}${detalhe}${spec.listaTip ? htmlListaTip(spec.listaTip[i]) : ""}`;
+  tip.innerHTML = `<strong>${spec.rotulosTip[i]}</strong>${series.map((s) => linha(s, spec.valores[s.n][i])).join("")}${detalhe}${spec.listaTip ? htmlListaTip(spec.listaTip[i], spec.rotuloLista) : ""}`;
   tip.classList.toggle("largo", !!spec.listaTip);
   tip.style.left = x;
   tip.classList.toggle("to-left", i > (N - 1) / 2);
@@ -291,6 +293,16 @@ function toggleVolume() {
     <div class="mx-seg small" role="tablist" aria-label="Mostrar o volume por">
       <button type="button" role="tab" data-vol="criticidade" class="${total ? "" : "is-on"}">Por criticidade</button>
       <button type="button" role="tab" data-vol="total" class="${total ? "is-on" : ""}">Total</button>
+    </div>`;
+}
+
+// alternância "Média | Total" do cartão de duração
+function toggleDuracao() {
+  const total = estado.modoDuracao === "total";
+  return `
+    <div class="mx-seg small" role="tablist" aria-label="Mostrar a duração como">
+      <button type="button" role="tab" data-dur="media" class="${total ? "" : "is-on"}">Média</button>
+      <button type="button" role="tab" data-dur="total" class="${total ? "is-on" : ""}">Total</button>
     </div>`;
 }
 
@@ -350,99 +362,249 @@ function matriz(titulo, descricao, colunas, linhas, { seletor = "", rodape = "",
 
 /* ---------- telas ---------- */
 
+/* ---------- Região (dinâmica: tudo calculado do modelo; sub áreas, corredores e coordenadas são INVENTADOS) ---------- */
+
+let PONTOS_MAPA = []; // pontos do mapa da tela atual (preenchido por telaRegiao, lido por montarMapa)
+
+// Nome da região no KPI: nomes longos não cabem em 32px
+function kpiNomeRegiao(nome, trendHtml) {
+  const longo = nome && nome.length > 16;
+  return `<div class="kpi-numbers"><span class="kpi-big nolt"${longo ? ' style="font-size:24px"' : ""}>${nome || "—"}</span>${trendHtml}</div>`;
+}
+
 function telaRegiao() {
-  const d = DASH.regiao;
-  const setas = { ok: ["reg", "2937e.svg"], bad: ["reg", "7e314.svg"] };
-  const icones = [
-    iconeBox("reg", "f5917.svg"),
-    iconeCheio("reg", "6158d.svg"),
-    iconeCheio("reg", "694cb.svg"),
-  ];
-  const kpis = d.kpis.map((k, i) => kpiCard({
-    titulo: k.titulo,
-    icone: icones[i],
-    numeros: kpiNumeros(k.valor, trend(k.trend.tom, k.trend.txt, setas, { px4: k.trend.tom === "ok" || false }), "nolt"),
-    sub: k.sub,
-  })).join("");
+  const p = estado.periodo;
+  const hojeRef = hoje();
+  const r = MODELO.resumir(p.de, p.ate, estado.filtros, hojeRef, estado.selecao);
+  const ant = MODELO.resumirAnterior(p.de, p.ate, estado.filtros, hojeRef, estado.selecao);
+  estado.totalPag = {};
+  PONTOS_MAPA = r.mapa;
 
-  const sub = d.subareas[estado.pag.subareas];
-  const cor = d.corredores[estado.pag.corredores];
-  const secao = (icone, titulo, linhas, chave, atual, total) => `
-    <div class="reg-section">
-      <div class="head-row" style="justify-content:flex-start;gap:4px">${icone}<span class="kpi-title lh125" style="font-size:14px">${titulo}</span></div>
-      <div class="rows">${linhas.map(linhaRegiao).join("")}</div>
-      ${paginacao(chave, atual, total)}
-    </div>`;
+  /* --- cartões do topo --- */
+  const topSub = r.subareasEv[0], topCor = r.corredoresEv[0];
+  const subAnt = ant && topSub ? (ant.subareasEv.find((x) => x.n === topSub.n) || { f: 0 }).f : null;
+  const corAnt = ant && topCor ? (ant.corredoresEv.find((x) => x.n === topCor.n) || { f: 0 }).f : null;
+  const nSub = r.subareasEv.length;
+  const pctTop3 = r.total ? Math.round((r.subareasEv.slice(0, 3).reduce((t, x) => t + x.f, 0) / r.total) * 100) : 0;
+  const kpis = [
+    kpiCard({ titulo: "Total de Alarmes", icone: iconeBox("reg", "f5917.svg"),
+      numeros: kpiNumeros(fmtInt(r.total), trendVar(variacao(r.total, ant && ant.total)), "nolt"),
+      sub: `Falhas em ${nSub} ${nSub === 1 ? "sub área" : "sub áreas diferentes"}` }),
+    kpiCard({ titulo: "Concentração de Falhas", icone: iconeCheio("reg", "6158d.svg"),
+      numeros: kpiNumeros(r.total ? `${pctTop3}%` : "—", "", "nolt"),
+      sub: nSub ? `das falhas do período estão nas ${Math.min(3, nSub)} sub áreas mais críticas` : "Sem falhas no período" }),
+    kpiCard({ titulo: "Sub Área mais crítica", icone: iconeCheio("reg", "6158d.svg"),
+      numeros: kpiNomeRegiao(topSub && topSub.n, topSub ? trendVar(variacao(topSub.f, subAnt)) : ""),
+      sub: topSub ? `${topSub.f} ${topSub.f === 1 ? "falha" : "falhas"} (${Math.round((topSub.f / r.total) * 100)}% do total do período)` : "Sem falhas no período" }),
+    kpiCard({ titulo: "Corredor mais afetado", icone: iconeCheio("reg", "694cb.svg"),
+      numeros: kpiNomeRegiao(topCor && topCor.n, topCor ? trendVar(variacao(topCor.f, corAnt)) : ""),
+      sub: topCor ? `${topCor.f} ${topCor.f === 1 ? "falha registrada" : "falhas registradas"} no período` : "Sem falhas no período" }),
+  ].join("");
 
+  /* --- listas de regiões (paginadas, clicáveis) --- */
+  const subPag = pagina(r.subareas, "subareas");
+  const corPag = pagina(r.corredores, "corredores");
+  const maxSub = r.subareas[0] ? r.subareas[0].f : 0, maxCor = r.corredores[0] ? r.corredores[0].f : 0;
+  const linhasSub = subPag.itens.map((x) => linhaRegiao({ ...x, w: larguraBarra(x.f, maxSub), c: corPorValor(x.f, maxSub), sel: { campo: "subareas", val: x.n } })).join("");
+  const linhasCor = corPag.itens.map((x) => linhaRegiao({ ...x, w: larguraBarra(x.f, maxCor), c: corPorValor(x.f, maxCor), sel: { campo: "corredores", val: x.n } })).join("");
+  const cartaoLista = (icone, titulo, sub, linhas, chave, pag) => `
+      <section class="card card-20" style="flex:1 1 0">
+        ${cabecalho({ icone, titulo, sub, classeTitulo: "lh125" })}
+        <div class="rows">${linhas || vazio()}</div>
+        ${paginacao(chave, pag.atual, pag.total)}
+      </section>`;
+
+  /* --- matriz Região x Alarme (Sub área | Corredor) --- */
+  const porSub = estado.matrizRegiao === "subarea";
+  const mxDados = porSub ? r.matrizSubareas : r.matrizCorredores;
+  const mxPag = pagina(mxDados.linhas, "matrizRegiao");
+  const mxVis = ordenarColunasDaPagina(mxDados.colunas, mxPag.itens);
+  mxVis.colunas = mxVis.colunas.map((c) => (c.outros || c.t === "Total" ? c : { ...c, sel: { campo: "alarmes", val: c.t } }));
   const seletor = `
     <div class="mx-seg" role="tablist" aria-label="Agrupar matriz por">
-      <button type="button" role="tab" data-mx="subarea" class="${estado.matrizRegiao === "subarea" ? "is-on" : ""}">Sub área</button>
-      <button type="button" role="tab" data-mx="corredor" class="${estado.matrizRegiao === "corredor" ? "is-on" : ""}">Corredor</button>
+      <button type="button" role="tab" data-mx="subarea" class="${porSub ? "is-on" : ""}">Sub área</button>
+      <button type="button" role="tab" data-mx="corredor" class="${porSub ? "" : "is-on"}">Corredor</button>
     </div>`;
-  const linhas = estado.matrizRegiao === "subarea" ? d.matrizSubarea : d.matrizCorredor;
 
   return `
+    ${htmlChipsSelecao()}
     <div class="row">${kpis}</div>
     <div class="row">
-      <section class="reg-card">
-        <div class="head">
-          <h2 class="reg-title">Regiões</h2>
-          <p class="reg-desc">Sub-áreas e corredores com maior concentração de falhas no período.</p>
-        </div>
-        <div class="reg-sections">
-          ${secao(icone20("reg", "155e2.svg"), "Top Sub Áreas Ofensoras", sub, "subareas", estado.pag.subareas, d.subareas.length)}
-          ${secao(icone20("reg", "02fb0.svg"), "Top Corredores", cor, "corredores", estado.pag.corredores, d.corredores.length)}
-        </div>
-      </section>
-      <section class="map-card">
-        <img class="map-img" src="assets/img/reg-5b7d7.png" alt="" style="aspect-ratio:1055/712;left:-3.44cqw;width:152.4cqw;top:-4.53cqw">
-        <img class="map-img" src="assets/img/reg-cd48d.png" alt="Mapa de calor de alarmes" style="aspect-ratio:1327/895;left:-8.19cqw;width:116.6cqw;top:-3.51cqw">
-        <div class="map-title">Mapa de calor</div>
+      <div class="reg-col">
+        ${cartaoLista(icone20("reg", "155e2.svg"), "Falhas por Sub Área", DASH.subtitulos.porSubarea, linhasSub, "subareas", subPag)}
+        ${cartaoLista(icone20("reg", "02fb0.svg"), "Falhas por Corredor", DASH.subtitulos.porCorredor, linhasCor, "corredores", corPag)}
+      </div>
+      <section class="map-card" style="flex:1.6 1 0">
+        <div class="map-slot" id="mapaSlot"></div>
         <div class="legend-modal">
-          <div class="lh"><span>Legenda</span>${img("reg", "3f3af.svg", 16, 16)}</div>
+          <div class="lh"><span>Legenda</span></div>
           <div class="lb">
             <div class="legend-grad"></div>
             <div class="legend-labels">
-              ${[["90763.svg", "Muitos Alarmes"], ["2b745.svg", "Alarmes moderado"], ["e18a6.svg", "Poucos Alarmes"], ["b215c.svg", "Sem Alarmes"]]
-                .map(([a, t]) => `<div class="legend-lvl">${img("reg", a, 8, 8)}<span>${t}</span></div>`).join("")}
+              ${[["Muitos Alarmes", 0], ["Alarmes moderado", 33.3], ["Poucos Alarmes", 66.6], ["Sem Alarmes", 100]]
+                .map(([t, pos]) => `<span class="legend-lvl" style="top:${pos}%">${t}</span>`).join("")}
             </div>
           </div>
         </div>
       </section>
     </div>
-    ${matriz("Matriz de Correlação: Região vs. Alarme", "Analise a incidência de alarmes por região para identificação de padrões", d.colunas, linhas, { seletor })}`;
+    ${mxDados.linhas.length
+      ? matriz(`Matriz de Correlação: Região vs. Alarme`, `${porSub ? "Sub áreas" : "Corredores"} (linhas) do que mais falha para o que menos falha; alarmes (colunas) começando pelo que mais deu na primeira linha da página, só os que aparecem nela. Use a paginação para ver as demais`,
+          mxVis.colunas, mxVis.linhas, { seletor, rodape: paginacao("matrizRegiao", mxPag.atual, mxPag.total), selLinhas: porSub ? "subareas" : "corredores" })
+      : `<section class="card"><div class="head-title"><span class="t">Matriz de Correlação: Região vs. Alarme</span></div>${vazio()}</section>`}`;
 }
 
+/* ---------- mapa de calor (Leaflet) ----------
+   O calor usa só latitude/longitude e nº de falhas de cada dispositivo (não depende de sub área cadastrada). O mapa é criado UMA vez e o mesmo elemento é re-encaixado a cada desenho da tela (render() troca o HTML todo;
+   recriar o mapa piscaria e baixaria os tiles de novo). Base: Esri Light Gray (sem chave), como no cockpit. */
+let MAPA = null; // { el, map, heat, chaveFit }
+
+// Antes de trocar o HTML da tela: para animações e tira o calor. Com o mapa fora da página (tamanho 0), o plugin de
+// calor ainda tenta redesenhar (fim de animação, tiles) e lança IndexSizeError, o que travava o enquadramento.
+function desmontarMapa() {
+  if (!MAPA) return;
+  try { MAPA.map.stop(); } catch (e) { /* sem animação em curso */ }
+  if (MAPA.heat) { try { MAPA.map.removeLayer(MAPA.heat); } catch (e) { /* já removido */ } MAPA.heat = null; }
+}
+
+function enquadrarMapa(animar) {
+  const pontos = PONTOS_MAPA;
+  if (pontos.length) {
+    // com muitos pontos, ignora os ~5% mais afastados de cada lado: poucos dispositivos isolados não podem abrir o mapa até as cidades vizinhas
+    const q = (arr, f) => arr[Math.min(arr.length - 1, Math.max(0, Math.round(f * (arr.length - 1))))];
+    const lats = pontos.map((x) => x.lat).sort((m, n) => m - n), lngs = pontos.map((x) => x.lng).sort((m, n) => m - n);
+    const cort = pontos.length >= 20 ? 0.05 : 0;
+    const limites = L.latLngBounds([q(lats, cort), q(lngs, cort)], [q(lats, 1 - cort), q(lngs, 1 - cort)]);
+    MAPA.map.fitBounds(limites, { padding: [30, 30], maxZoom: 15, animate: animar });
+  }
+  else MAPA.map.setView(MODELO.CENTRO_MAPA, 12, { animate: animar });
+}
+
+function montarMapa() {
+  const slot = document.getElementById("mapaSlot");
+  if (!slot) return;
+  if (typeof L === "undefined") { slot.innerHTML = '<div class="map-erro">Mapa indisponível: não foi possível carregar o Leaflet (sem internet?).</div>'; return; }
+  if (!MAPA) {
+    const el = document.createElement("div");
+    el.className = "mapa";
+    slot.appendChild(el); // o mapa precisa nascer JÁ dentro da página: fora dela o tamanho é 0 e o plugin de calor dá erro
+    const map = L.map(el, { zoomControl: false, preferCanvas: true }).setView(MODELO.CENTRO_MAPA, 12);
+    L.control.zoom({ position: "bottomright" }).addTo(map); // embaixo à direita: o título e a legenda ocupam os cantos de cima
+    const ESRI = "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas";
+    map.createPane("rotulos");
+    map.getPane("rotulos").style.zIndex = 450; // nomes de rua acima do calor (400) e abaixo dos pontos (600)
+    map.getPane("rotulos").style.pointerEvents = "none";
+    L.tileLayer(`${ESRI}/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}`, { attribution: "Mapa &copy; Esri", maxNativeZoom: 16, maxZoom: 18 }).addTo(map);
+    L.tileLayer(`${ESRI}/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}`, { pane: "rotulos", maxNativeZoom: 16, maxZoom: 18 }).addTo(map);
+    MAPA = { el, map, heat: null, chaveFit: null };
+    // botão "Centralizar": volta o mapa para o enquadramento do calor atual (mesmo cálculo usado ao trocar a seleção)
+    const Centralizar = L.Control.extend({
+      options: { position: "bottomright" },
+      onAdd() {
+        const bar = L.DomUtil.create("div", "leaflet-bar leaflet-control mapa-centralizar");
+        const a = L.DomUtil.create("a", "", bar);
+        a.href = "#"; a.role = "button"; a.title = "Centralizar mapa"; a.setAttribute("aria-label", "Centralizar mapa");
+        a.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3.5"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>';
+        L.DomEvent.disableClickPropagation(bar);
+        L.DomEvent.on(a, "click", (ev) => { L.DomEvent.preventDefault(ev); enquadrarMapa(true); });
+        return bar;
+      },
+    });
+    new Centralizar().addTo(map);
+  } else {
+    slot.appendChild(MAPA.el); // re-encaixa o mesmo mapa no HTML novo
+  }
+  MAPA.map.invalidateSize(false); // recalcula o tamanho já com o elemento na página
+
+  const pontos = PONTOS_MAPA;
+  if (MAPA.heat) { MAPA.map.removeLayer(MAPA.heat); MAPA.heat = null; }
+  const max = Math.max(1, ...pontos.map((x) => x.f));
+  const tamanho = MAPA.map.getSize();
+  if (typeof L.heatLayer === "function" && pontos.length && tamanho.x > 0 && tamanho.y > 0) {
+    // cores da legenda do Figma: verde (poucos) -> amarelo -> laranja -> vermelho (muitos); sqrt dá visibilidade aos pontos com 1-2 falhas
+    MAPA.heat = L.heatLayer(pontos.map((x) => [x.lat, x.lng, Math.sqrt(x.f / max)]), {
+      radius: 30, blur: 22, max: 0.7, minOpacity: 0.35,
+      gradient: { 0.15: "#10b981", 0.4: "#84cc16", 0.6: "#facc15", 0.8: "#f57c00", 1: "#d71920" },
+    });
+    try { MAPA.heat.addTo(MAPA.map); } catch (e) { MAPA.heat = null; } // calor é só visual: nunca derruba o resto da tela
+  }
+  // enquadra o calor na 1ª vez e sempre que a seleção de região/dispositivo muda (o calor em si só usa lat/lng)
+  const chave = JSON.stringify([estado.selecao.subareas, estado.selecao.corredores, estado.selecao.dispositivos]);
+  if (chave !== MAPA.chaveFit) {
+    MAPA.chaveFit = chave;
+    enquadrarMapa(false);
+  }
+}
+
+/* ---------- Alarme (dinâmica: tudo calculado do modelo para o período, filtros e seleção) ---------- */
+
+// Duração em minutos -> "42 min" / "1 h 12 min"
+function partesDuracao(min) {
+  const m = Math.round(min);
+  return m < 60 ? { v: String(m), u: "min" } : { v: `${Math.floor(m / 60)} h ${m % 60}`, u: "min" };
+}
+// KPI grande: números em destaque, unidades pequenas ("42 min", "1 h 12 min")
+function rotuloDuracaoKpi(min) {
+  const m = Math.round(min);
+  return m < 60 ? `${m} <small>min</small>` : `${Math.floor(m / 60)} <small>h</small> ${m % 60} <small>min</small>`;
+}
+const COR_CRIT = Object.fromEntries(SERIES_VOLUME.map((s) => [s.n, s.cor]));
+
 function telaAlarme() {
-  const d = DASH.alarme;
-  const setas = { ok: ["alkpi", "13b09.svg"], bad: ["alkpi", "7e314.svg"] };
+  const p = estado.periodo;
+  const hojeRef = hoje();
+  const r = MODELO.resumir(p.de, p.ate, estado.filtros, hojeRef, estado.selecao);
+  const ant = MODELO.resumirAnterior(p.de, p.ate, estado.filtros, hojeRef, estado.selecao);
+  estado.totalPag = {};
+  const mediaDia = r.dias ? r.total / r.dias : 0;
+  const mediaDiaAnt = ant && ant.dias ? ant.total / ant.dias : null;
+  const alarmeAnt = ant && r.topAlarme ? (ant.alarmes.find((a) => a.n === r.topAlarme.n) || { v: 0 }).v : null;
+
+  /* --- cartões do topo --- */
+  const nomeLongo = r.topAlarme && r.topAlarme.n.length > 20; // nomes longos não cabem em 30px
   const kpis = [
-    kpiCard({ titulo: "Total de Alarmes", tituloLh: "lh1", icone: iconeBox("alkpi", "f5917.svg"), numeros: kpiNumeros("106", trend("ok", "14,3%", setas, { px4: true, lh1: true })), sub: "7 tipos de alarme distintos", subClasse: "w500" }),
-    kpiCard({ titulo: "Média Diária", tituloLh: "lh1", icone: iconeCheio("alkpi", "811c0.svg"), numeros: kpiNumeros("4,6", trend("bad", "6,3%", setas, { px4: true })), sub: "Frequência diária de alarmes", subClasse: "w500" }),
-    kpiCard({
-      titulo: "Alarmes de Maior Ocorrência", tituloLh: "lh1", icone: iconeInset("alkpi", "f348a.svg", 16.097, 16.003, "-4.06% -4.69% -4.66% -4.66%"),
-      numeros: `<div class="kpi-body h23"><span class="kpi-body-text">Falha na comunicação</span></div>`, sub: "Responsável por 23% do total", subClasse: "w500",
-    }),
-    kpiCard({
-      titulo: "Tempo Médio de Alarme Ativo", tituloLh: "lh1", icone: iconeInset("alkpi", "c80a1.svg", 16.004, 16.097, "-4.06% -4.69% -4.66% -4.66%"),
-      numeros: `<div class="kpi-body"><span class="kpi-big black">42 <small>min</small></span>${trend("bad", "5,8%", setas)}</div>`, sub: "18% dos alarmes ficam ativos por mais de 4h", subClasse: "w500",
-    }),
+    kpiCard({ titulo: "Total de Alarmes", tituloLh: "lh1", icone: iconeBox("alkpi", "f5917.svg"),
+      numeros: kpiNumeros(fmtInt(r.total), trendVar(variacao(r.total, ant && ant.total))),
+      sub: `${r.tiposDeAlarme} ${r.tiposDeAlarme === 1 ? "tipo de alarme" : "tipos de alarme distintos"}`, subClasse: "w500" }),
+    kpiCard({ titulo: "Média Diária", tituloLh: "lh1", icone: iconeCheio("alkpi", "811c0.svg"),
+      numeros: kpiNumeros(fmtDec(mediaDia), trendVar(variacao(mediaDia, mediaDiaAnt))), sub: "Frequência diária de alarmes", subClasse: "w500" }),
+    kpiCard({ titulo: "Alarmes de Maior Ocorrência", tituloLh: "lh1", icone: iconeInset("alkpi", "f348a.svg", 16.097, 16.003, "-4.06% -4.69% -4.66% -4.66%"),
+      numeros: `<div class="kpi-body h23"><span class="kpi-body-text"${nomeLongo ? ' style="font-size:22px"' : ""}>${r.topAlarme ? r.topAlarme.n : "—"}</span></div>`,
+      sub: r.topAlarme ? `Responsável por ${Math.round((r.topAlarme.v / r.total) * 100)}% do total` : "Sem alarmes no período", subClasse: "w500" }),
+    kpiCard({ titulo: "Tempo Médio de Alarme Ativo", tituloLh: "lh1", icone: iconeInset("alkpi", "c80a1.svg", 16.004, 16.097, "-4.06% -4.69% -4.66% -4.66%"),
+      numeros: `<div class="kpi-body"><span class="kpi-big black uma-cor">${r.total ? rotuloDuracaoKpi(r.durMedia) : "—"}</span>${r.total ? trendVar(variacao(r.durMedia, ant && ant.durMedia)) : ""}</div>`,
+      sub: r.total ? `${r.pctLongos}% dos alarmes ficam ativos por mais de 4h` : "Sem alarmes no período", subClasse: "w500" }),
   ].join("");
 
-  const pizza = `
-    <div class="pie">
-      ${img("aldist", "1dd45.svg")}
-      <div class="pie-labels">${d.pizzaLabels.map(([t, x, y]) => `<span class="pct" style="left:${x}px;top:${y}px">${t}</span>`).join("")}</div>
-    </div>`;
-  const legenda = d.criticidade.map((c) => `
-    <div class="legend-item">${img("aldist", `${c.dot}.svg`, 6, 6)}<div class="lt"><span style="color:${c.cor}">${c.n}</span><b>${c.v}</b></div></div>`).join("");
+  /* --- pizza de criticidade (clicável) e legenda --- */
+  const fatias = r.criticidades.map((c) => ({ id: c.n, v: c.v, cor: COR_CRIT[c.n] }));
+  const legenda = r.criticidades.map((c) => `
+    <div class="legend-item${classeSel({ campo: "crits", val: c.n })}" data-sel="crits" data-val="${c.n}"><span class="dot6" style="background:${COR_CRIT[c.n]}"></span><div class="lt"><span style="color:${COR_CRIT[c.n]}">${c.n}</span><b>${c.v}</b></div></div>`).join("");
+
+  /* --- gráfico de volume: spec do período (o hover mostra só a criticidade) --- */
+  const spec = { eixoMax: r.serie.eixoMax, casas: 0, rotulos: r.serie.rotulos, rotulosTip: r.serie.rotulosTip, valores: r.serie.valores };
+
+  /* --- listas completas (todos os tipos de alarme, sem paginação) --- */
+  const maxTop = r.alarmesLista[0] ? r.alarmesLista[0].f : 0;
+  // Média = quanto cada ocorrência demora; Total = média x ocorrências = onde o tempo foi gasto (mistura frequência e duração)
+  const totalDur = estado.modoDuracao === "total";
+  const listaDur = totalDur
+    ? r.duracaoPorAlarme.map((a) => ({ ...a, v: a.v * a.f })).sort((a, b) => b.v - a.v || a.n.localeCompare(b.n, "pt-BR"))
+    : r.duracaoPorAlarme;
+  const maxDur = listaDur[0] ? listaDur[0].v : 0;
+  // 10 por página: hoje cabem todos os tipos ("Pág 1 / 1"); se o catálogo crescer (o do backend tem ~30), pagina sozinho
+  const top = pagina(r.alarmesLista, "topAlarmes");
+  const dur = pagina(listaDur, "duracao");
+  const linhasTop = top.itens.map((a) => linhaFalhas({ n: a.n, f: a.f, w: larguraBarra(a.f, maxTop), c: corPorValor(a.f, maxTop), sel: { campo: "alarmes", val: a.n } })).join("");
+  const linhasDur = dur.itens.map((a) => { const t = partesDuracao(a.v); return linhaDuracao({ n: a.n, v: t.v, u: t.u, w: larguraBarra(a.v, maxDur), c: corPorValor(a.v, maxDur), sel: { campo: "alarmes", val: a.n }, auto: true }); }).join("");
 
   return `
+    ${htmlChipsSelecao()}
     <div class="row">${kpis}</div>
     <div class="row">
       <section class="card card-20 pie-card" style="flex:0 0 clamp(340px,22%,420px)">
         ${cabecalho({ icone: icone20("aldist", "04c43.svg"), titulo: "Distribuição por Criticidade", sub: DASH.subtitulos.criticidade })}
-        <div class="pie-body">${pizza}<div class="legend">${legenda}</div></div>
+        <div class="pie-body">${pizza(fatias, "crits")}<div class="legend">${legenda}</div></div>
       </section>
       <section class="card card-20" style="flex:1 1 0;align-items:center">
         <div class="head-row">
@@ -452,25 +614,30 @@ function telaAlarme() {
           </div>
           ${toggleVolume()}
         </div>
-        ${graficoLinhas(aplicarModoVolume(especVolumeEstatica()))}
+        ${graficoLinhas(aplicarModoVolume(spec))}
         ${legendaVolume()}
       </section>
     </div>
     <div class="row">
       <section class="card card-20" style="flex:1 1 0">
-        ${cabecalho({ icone: iconeTrendingUp("aldur"), titulo: "Top Alarmes", sub: DASH.subtitulos.topAlarmes })}
-        <div class="rows">${d.topAlarmes.slice(0, 5).map((r) => linhaFalhas({ n: r.n, f: r.f, w: r.w, c: r.c })).join("")}</div>
+        ${cabecalho({ icone: iconeTrendingUp("aldur"), titulo: "Ocorrências por Alarme", sub: DASH.subtitulos.topAlarmes })}
+        <div class="rows">${linhasTop || vazio("Sem alarmes no período selecionado.")}</div>
+        ${paginacao("topAlarmes", top.atual, top.total)}
       </section>
-      <section class="card" style="flex:1 1 0">
-        ${cabecalho({ icone: icone20("aldur", "77437.svg"), titulo: "Duração Média de Alarmes", sub: DASH.subtitulos.duracao })}
-        <div class="rows">${d.duracao.slice(0, 5).map(linhaDuracao).join("")}</div>
+      <section class="card card-20" style="flex:1 1 0">
+        <div class="head-row">
+          ${cabecalho({ icone: icone20("aldur", "77437.svg"), titulo: "Duração por Alarme", sub: totalDur ? DASH.subtitulos.duracaoTotal : DASH.subtitulos.duracao })}
+          ${toggleDuracao()}
+        </div>
+        <div class="rows">${linhasDur || vazio("Sem alarmes no período selecionado.")}</div>
+        ${paginacao("duracao", dur.atual, dur.total)}
       </section>
     </div>`;
 }
 
 /* ---------- Dispositivo (dinâmica: tudo calculado do modelo para o período e filtros escolhidos) ---------- */
 
-const TAM_PAG = { topDisp: 5, tipos: 5, fabricantes: 5, modelos: 4, matriz: 7 };
+const TAM_PAG = { topDisp: 5, tipos: 5, fabricantes: 5, modelos: 4, matriz: 7, topAlarmes: 10, duracao: 10, subareas: 4, corredores: 4, matrizRegiao: 7 };
 
 const fmtInt = (n) => Math.round(n).toLocaleString("pt-BR");
 const fmtDec = (n) => n.toFixed(1).replace(".", ",");
@@ -482,10 +649,21 @@ const SETA_VAR = '<svg width="10" height="10" viewBox="0 0 10 10" fill="none"><p
 function variacao(atual, anterior) {
   return anterior == null || anterior === 0 ? null : ((atual - anterior) / anterior) * 100;
 }
+// período anterior de mesmo tamanho ("03/08/2026 a 01/09/2026"), o mesmo que resumirAnterior() usa nas variações
+function rotuloPeriodoAnterior() {
+  const { de, ate } = estado.periodo;
+  const dias = Math.round((new Date(ate.getFullYear(), ate.getMonth(), ate.getDate()) - new Date(de.getFullYear(), de.getMonth(), de.getDate())) / 86400000) + 1;
+  const fim = new Date(de.getFullYear(), de.getMonth(), de.getDate() - 1);
+  const ini = new Date(fim.getFullYear(), fim.getMonth(), fim.getDate() - (dias - 1));
+  return { dias, intervalo: `${fmtData(ini)} a ${fmtData(fim)}`, curto: dias === 1 ? "vs. dia anterior" : `vs. ${dias} dias anteriores` };
+}
+
 function trendVar(pct) {
   if (pct == null) return "";
   const sobe = pct >= 0;
-  return `<div class="trend ${sobe ? "bad" : "ok"} px4" title="Variação em relação ao período anterior de mesmo tamanho"><div class="trend-ico dyn ${sobe ? "up" : "down"}">${SETA_VAR}</div><span class="trend-txt lh1">${fmtDec(Math.abs(pct))}%</span></div>`;
+  const ant = rotuloPeriodoAnterior();
+  const dica = `Variação em relação aos ${ant.dias} dias anteriores, de mesmo tamanho que o período selecionado (${ant.intervalo})`;
+  return `<div class="trend ${sobe ? "bad" : "ok"} px4" title="${dica}"><div class="trend-ico dyn ${sobe ? "up" : "down"}">${SETA_VAR}</div><span class="trend-txt lh1">${fmtDec(Math.abs(pct))}%</span></div><span class="trend-ref" title="${dica}">${ant.curto}</span>`;
 }
 
 // "5 a 8 anos" -> números em destaque, palavras pequenas e cinza (como no Figma)
@@ -505,7 +683,7 @@ const vazio = (txt = "Sem falhas no período selecionado.") => `<div class="list
 
 // Pizza em SVG (sem imagem): fatias a partir do topo, no sentido horário. O % de cada fatia só aparece
 // quando o mouse está em cima dela (a legenda ao lado já traz o percentual).
-function pizza(fatias) {
+function pizza(fatias, campo = "faixas") {
   const total = fatias.reduce((a, f) => a + f.v, 0);
   const R = 94.6, C = 94.6;
   if (!total) return `<div class="pie"><svg viewBox="0 0 189.2 189.2" width="189.2" height="189.2"><circle cx="${C}" cy="${C}" r="${R}" fill="#e5e5e5"/></svg><span class="pct pie-vazio">Sem dados</span></div>`;
@@ -515,10 +693,10 @@ function pizza(fatias) {
   fatias.forEach((f, idx) => {
     if (!f.v) return;
     const fim = ang + (f.v / total) * Math.PI * 2;
-    if (f.v === total) partes.push(`<circle class="fatia${classeSel({ campo: "faixas", val: f.id })}" data-sel="faixas" data-val="${f.id}" data-fatia="${idx}" cx="${C}" cy="${C}" r="${R}" fill="${f.cor}"/>`);
+    if (f.v === total) partes.push(`<circle class="fatia${classeSel({ campo, val: f.id })}" data-sel="${campo}" data-val="${f.id}" data-fatia="${idx}" cx="${C}" cy="${C}" r="${R}" fill="${f.cor}"/>`);
     else {
       const [x1, y1] = ponto(ang, R), [x2, y2] = ponto(fim, R);
-      partes.push(`<path class="fatia${classeSel({ campo: "faixas", val: f.id })}" data-sel="faixas" data-val="${f.id}" data-fatia="${idx}" d="M${C} ${C} L${x1.toFixed(2)} ${y1.toFixed(2)} A${R} ${R} 0 ${fim - ang > Math.PI ? 1 : 0} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} Z" fill="${f.cor}" stroke="#fff" stroke-width="1.5"/>`);
+      partes.push(`<path class="fatia${classeSel({ campo, val: f.id })}" data-sel="${campo}" data-val="${f.id}" data-fatia="${idx}" d="M${C} ${C} L${x1.toFixed(2)} ${y1.toFixed(2)} A${R} ${R} 0 ${fim - ang > Math.PI ? 1 : 0} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} Z" fill="${f.cor}" stroke="#fff" stroke-width="1.5"/>`);
     }
     const pct = Math.round((f.v / total) * 100);
     const [lx, ly] = ponto((ang + fim) / 2, f.v === total ? 0 : R * 0.62);
@@ -531,13 +709,20 @@ function pizza(fatias) {
 /* ---------- seleção por clique (aba Dispositivo) ----------
    Clicar em um tipo, fabricante, modelo, dispositivo, fatia da pizza ou alarme da matriz filtra o resto da
    tela na hora. Clicar de novo no mesmo item limpa; Ctrl/Cmd+clique seleciona vários. */
-const ROTULO_CAMPO_SEL = { tipos: "Tipo", fabricantes: "Fabricante", modelos: "Modelo", faixas: "Idade", dispositivos: "Dispositivo", alarmes: "Alarme" };
+const ROTULO_CAMPO_SEL = { tipos: "Tipo", fabricantes: "Fabricante", modelos: "Modelo", faixas: "Idade", dispositivos: "Dispositivo", alarmes: "Alarme", crits: "Criticidade", subareas: "Sub área", corredores: "Corredor" };
 const rotuloValSel = (campo, val) => (campo === "faixas" ? (MODELO.FAIXAS.find((f) => f.id === val) || {}).rotulo || val : val);
 
 function htmlChipsSelecao() {
   const chips = Object.entries(estado.selecao).flatMap(([campo, vals]) => vals.map((v) =>
     `<button type="button" class="chip-sel" data-chip="${campo}" data-val="${v}" title="Remover da seleção">${ROTULO_CAMPO_SEL[campo]}: <b>${rotuloValSel(campo, v)}</b><span aria-hidden="true">×</span></button>`));
-  if (!chips.length) return `<div class="chips-sel dica">Clique em um tipo, fabricante, modelo, dispositivo, fatia da pizza ou alarme da matriz para filtrar a tela. Ctrl+clique seleciona vários.</div>`;
+  if (!chips.length) {
+    const dicas = {
+      alarme: "Clique em uma fatia de criticidade ou em um alarme das listas para filtrar a tela. Ctrl+clique seleciona vários.",
+      regiao: "Clique em uma sub área, corredor ou alarme da matriz para filtrar a tela. Ctrl+clique seleciona vários.",
+    };
+    const dica = dicas[rotaAtual()] || "Clique em um tipo, fabricante, modelo, dispositivo, fatia da pizza ou alarme da matriz para filtrar a tela. Ctrl+clique seleciona vários.";
+    return `<div class="chips-sel dica">${dica}</div>`;
+  }
   return `<div class="chips-sel"><span class="chips-rotulo">Seleção:</span>${chips.join("")}<button type="button" class="pop-link" data-limpar-selecao>Limpar seleção</button></div>`;
 }
 
@@ -1001,8 +1186,10 @@ function render() {
   const id = rotaAtual();
   renderAbas(id);
   GRAFICOS.length = 0;
+  desmontarMapa();
   $("#view").innerHTML = TELAS[id]();
   iniciarGraficos();
+  if (id === "regiao") montarMapa();
   document.title = `Dashboard de Alertas — ${ROTAS.find((r) => r.id === id).rotulo}`;
 }
 
@@ -1030,14 +1217,16 @@ function iniciar() {
     const pag = e.target.closest("[data-pag]");
     if (pag) {
       const chave = pag.dataset.pag;
-      const total = estado.totalPag[chave] || { subareas: DASH.regiao.subareas.length, corredores: DASH.regiao.corredores.length }[chave];
+      const total = estado.totalPag[chave];
       if (total) { estado.pag[chave] = Math.min(Math.max(estado.pag[chave] + Number(pag.dataset.dir), 0), total - 1); render(); }
       return;
     }
+    const durBtn = e.target.closest("[data-dur]");
+    if (durBtn) { estado.modoDuracao = durBtn.dataset.dur; estado.pag.duracao = 0; render(); return; }
     const vol = e.target.closest("[data-vol]");
     if (vol) { estado.modoVolume = vol.dataset.vol; render(); return; }
     const mx = e.target.closest("[data-mx]");
-    if (mx) { estado.matrizRegiao = mx.dataset.mx; render(); }
+    if (mx) { estado.matrizRegiao = mx.dataset.mx; estado.pag.matrizRegiao = 0; render(); }
   });
 
   // marcar/desmarcar no painel de filtros (rascunho) e busca dentro do campo aberto

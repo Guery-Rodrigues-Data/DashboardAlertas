@@ -413,3 +413,46 @@ main { display: flex; flex-direction: column; gap: 16px; }
 .mx-cell.row-name[data-sel]:hover { background: #d4d4d4; }
 .mx-line.body.sel-off { opacity: 0.4; }
 .mx-line.body.sel-on-linha .mx-cell.row-name { background: var(--error-100); color: var(--text-brand); box-shadow: inset 3px 0 0 var(--icon-brand); }
+.dot6 { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+.legend-item[data-sel] { cursor: pointer; }
+/* Top Alarmes e Duração de Alarmes: cinza-azulado bem escuro (slate) no lugar do cinza claro do Figma */
+.brow.slate .brow-name, .brow.slate .brow-val .n { color: #1e293b; }
+.brow.slate .brow-val .u { color: #475569; }
+
+/* ---------- aba Região: mapa de calor de verdade (Leaflet) ---------- */
+.map-card { isolation: isolate; } /* contém os z-index internos do Leaflet (não passam por cima dos popovers) */
+.map-slot { position: absolute; inset: 0; }
+.mapa { width: 100%; height: 100%; background: #e5e5e5; font-family: inherit; }
+.map-card .map-title, .map-card .legend-modal { z-index: 800; }
+.map-erro { height: 100%; display: flex; align-items: center; justify-content: center; padding: 24px; text-align: center; font-size: 12px; color: var(--text-enabled); }
+.leaflet-tooltip { font: 500 11px/1.4 "Roboto", sans-serif; color: var(--text-default); border-radius: 6px; border: 1px solid var(--border); box-shadow: 0 4px 12px rgba(0, 43, 51, 0.15); }
+.leaflet-tooltip strong { color: var(--ink); }
+.reg-section .head { width: 100%; }
+.brow.slate .tag { color: #475569; } /* "• 97 Ativos" no mesmo cinza-azulado escuro das listas de Alarme */
+/* legenda do mapa: uma barra só; cada rótulo fica na altura exata da sua cor (sem bolinhas) */
+.legend-modal .lb { align-items: flex-start; padding: 5px 0; }
+.legend-modal .legend-grad { height: 96px; background: linear-gradient(180deg, #d71920 0%, #f57c00 33.3%, #facc15 66.6%, #10b981 100%); }
+.legend-modal .legend-labels { position: relative; display: block; height: 96px; min-width: 92px; }
+.legend-modal .legend-lvl { position: absolute; left: 0; transform: translateY(-50%); gap: 0; }
+.map-card .legend-modal { padding: 10px 16px 10px 12px; } /* mais respiro à direita: o texto não encosta na borda */
+/* sem o título "Regiões": o cartão da esquerda fica mais baixo e o mapa (que acompanha a altura dele) encolhe, subindo a matriz */
+.map-card { min-height: 480px; }
+.reg-card .reg-section + .reg-section { border-top: 1px solid var(--border); border-radius: 0; }
+/* aba Região: Sub Área | Corredor | Mapa lado a lado; o mapa fica proporcional (acompanha a altura das listas) */
+.map-card { min-height: 340px; }
+/* Região: a altura da linha acompanha a janela (100vh - topo/cartões ≈ 380px) para sempre sobrar uma "espiada" da matriz embaixo, como nas outras abas.
+   Mínimo de 380px (telas baixas) e máximo de 560px (telas altas, onde o mapa já está grande o bastante). */
+.map-card { min-height: clamp(380px, calc(100vh - 380px), 560px); }
+/* Região: Sub Área e Corredor empilhados numa coluna ao lado do mapa */
+.reg-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.reg-col > .card { flex: 1 1 auto; }
+/* Região: cartões da coluna mais compactos (menos padding e menos espaço entre linhas) para sobrar a "espiada" da matriz */
+.reg-col { gap: 12px; }
+.reg-col > .card { padding: 14px 16px; gap: 10px; }
+.reg-col .rows { gap: 9px; }
+/* botão "Centralizar" do mapa: mesmo visual do zoom, logo abaixo dele */
+.mapa-centralizar a { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; color: #333; }
+.mapa-centralizar a:hover { background: #f4f4f4; }
+/* "vs. período anterior" ao lado da seta de variação: deixa claro com o que o % é comparado (o tooltip mostra as datas) */
+.kpi-numbers { min-width: 0; }
+.trend-ref { font-size: 11px; font-weight: 500; line-height: 1.25; color: var(--text-disabled); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; padding-bottom: 2px; }

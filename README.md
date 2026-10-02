@@ -34,7 +34,7 @@ Só as versões **Web** foram implementadas. Os frames APP (375 px) e mobile (39
 ## Pontos do Figma mantidos como estão (provável placeholder)
 "Súbtítulo de explicação" (grafia), "140falhas" (sem espaço), colunas "Subtensão Elétrica" ×3 e ids
 repetidos (DEV-1145 ×3, DET-8821 ×2) nas matrizes, "35 ~ 35%" em todas as linhas de Tipo de
-dispositivo, "Hikvision" duas vezes em Fabricante, lista Top Alarmes repetida (10 linhas, 5 distintas).
+dispositivo, "Hikvision" duas vezes em Fabricante, lista Ocorrências por Alarme repetida (10 linhas, 5 distintas).
 
 ## Assets
 `assets/img/<origem>-<hash>.<ext>`: exportados do Figma em 02/10/2026 (as URLs do Figma expiram em
@@ -44,7 +44,7 @@ arquivo no Figma e conteúdo diferente.
 ## Ajustes de encaixe em tela larga (diferem do Figma de propósito)
 - Largura **fluida** (o Figma é 1440 px fixo); testado em mente para ~1920 px.
 - Altura dos gráficos de linha **190 px** (Figma: 226 px) — variável `--chart-h` em `styles.css`.
-- Alarme: "Top Alarmes" e "Duração Média" mostram **5 linhas** (o Figma repete as mesmas 5 duas vezes).
+- Alarme: "Ocorrências por Alarme" e "Duração Média" mostram **5 linhas** (o Figma repete as mesmas 5 duas vezes).
 - Região: o mapa estica até a altura da lista (Figma: 751 px fixo) e a imagem escala com a largura.
 - Cartões de pizza com largura em `clamp()` em vez de 380/580 px fixos.
 
@@ -80,3 +80,18 @@ Clicar na tela filtra o resto dela na hora (como em ferramentas de BI): **Tipo d
 - O cartão de onde veio o clique **continua mostrando todas as opções**, com a escolhida em destaque (as outras esmaecem), para dar para trocar. Os demais cartões (números, gráfico, outras listas) passam a refletir só a seleção. A matriz funciona assim para dispositivo e alarme.
 - É **independente do painel Filtros**: o painel restringe a tela toda; a seleção por clique restringe os outros cartões. As duas valem ao mesmo tempo.
 - Os percentuais de cada lista são sobre o total dela com as demais seleções aplicadas (sem a própria).
+
+## Aba Alarme dinâmica
+Mesma base da aba Dispositivo (`assets/modelo.js`): **um alarme é uma falha**, então o "Total de Alarmes" daqui é igual ao "Total de falhas" de lá. Período, painel de Filtros e seleção por clique valem nas duas abas (a seleção é compartilhada: escolher um alarme aqui também filtra a aba Dispositivo).
+- **Cartões:** Total de Alarmes (nº de tipos distintos), Média Diária (alarmes/dia), Alarme de Maior Ocorrência (nome + % do total) e Tempo Médio de Alarme Ativo (+ % dos alarmes com mais de 4h). Variação vs período anterior de mesmo tamanho (mais = vermelho).
+- **Pizza de criticidade** (SVG; % no hover; clicar numa fatia filtra) e **Volume de Alarmes** com o toggle "Por criticidade | Total"; o hover mostra só a criticidade (no modo Total, o total e a composição por criticidade); por hora se o período é de até 2 dias.
+- **Ocorrências por Alarme** (por nº de ocorrências) e **Duração Média de Alarmes** (maior para a menor, em "x h y min"): mostram **todos os tipos de alarme (hoje 10) de uma vez**, com paginação de **10 por página** (hoje aparece "Pág 1 / 1", igual aos cartões vizinhos; se o catálogo crescer, pagina sozinho); o cartão de duração ("Duração por Alarme") tem o toggle **Média | Total** (padrão Média): Média = quanto cada ocorrência demora; Total = média × ocorrências = onde o tempo foi gasto (mistura frequência e duração, então o ranking se parece mais com o Ocorrências por Alarme); clicar num alarme filtra a tela. O catálogo do backend tem ~30 tipos, então a paginação passa a valer quando a tela for ligada a ele.
+- **Duração**: cada falha ganha uma duração simulada (exponencial, com média por tipo de alarme: de 28 min em Falha na comunicação a 380 min em Queima total do vermelho). **NÃO é dado real e a definição de "tempo ativo" não está validada** (abertura → encerramento? alarmes ainda abertos entram?).
+- A matriz "Alarme" que existe oculta no Figma não foi implementada.
+
+## Aba Região dinâmica
+Mesma base (`assets/modelo.js`) com **regiões INVENTADAS** (só para ter uma ideia; não é o cadastro real): 10 sub áreas com centro em Curitiba (Centro Histórico, Zona Leste, Zona Sul…) e 12 corredores, e cada um dos 545 dispositivos recebe uma sub área, um corredor e coordenadas (sorteio com semente própria: nenhum número das outras abas mudou). Período, painel de Filtros e seleção por clique valem aqui também; **a seleção é compartilhada com as outras abas**.
+- **Cartões:** Total de Alarmes (em quantas sub áreas), Sub Área mais crítica (e % do total da cidade) e Corredor mais afetado, com variação vs período anterior.
+- **Falhas por Sub Área / Falhas por Corredor** (lado a lado com o mapa, numa linha só, sem o título "Regiões"; o mapa acompanha a altura das listas, ~370 px, e a matriz sobe) (antes "Top …": a lista mostra todas, não só as primeiras), paginadas de 5 em 5, com "• N Ativos" = dispositivos do cadastro na região (**definição não validada**). Clicar numa região filtra a tela. Dispositivo sem sub área ou corredor cadastrado aparece como "Sem sub área" / "Sem corredor" (as contas continuam fechando).
+- **Mapa de calor de verdade:** Leaflet 1.9.4 + leaflet.heat (CDN unpkg) sobre o mapa-base Esri Light Gray (sem chave, igual ao cockpit). Precisa de internet. O calor é montado **só com a latitude/longitude e o nº de falhas de cada dispositivo**, sem usar sub área nem corredor (se a operação ainda não cadastrou as regiões, o mapa continua completo; dispositivo sem coordenada fica de fora do mapa). **Não há pontinhos de dispositivos**, só o calor, com as cores da legenda do Figma. O mapa **enquadra o calor** quando a seleção de região ou dispositivo muda. O mapa é criado uma vez e re-encaixado a cada desenho da tela, para não piscar.
+- **Matriz Região x Alarme** (Sub área | Corredor): mesmas regras da matriz de Dispositivo (paginada, colunas ordenadas pela 1ª linha, colunas vazias escondidas, Outros alarmes/Total, hover em "Outros alarmes").

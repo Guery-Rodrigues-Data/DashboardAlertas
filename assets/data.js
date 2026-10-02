@@ -128,9 +128,13 @@ DASH.volume = {"crit": [3.4, 4.4, 4.3, 4.7, 6.0, 5.4, 6.4, 6.6, 6.2, 7.6, 6.9, 7
    Texto proposto — as DEFINIÇÕES por trás (o que conta, de quando a quando) NÃO estão validadas, ver README. */
 DASH.subtitulos = {
   criticidade: "Alarmes do período por nível de criticidade",
-  volumeAlarmes: "Quantidade de alarmes por dia, separada por criticidade",
-  topAlarmes: "Tipos de alarme com mais ocorrências no período",
-  duracao: "Tempo médio que cada tipo de alarme permanece ativo",
+  volumeAlarmes: "Alarmes no período, separados por criticidade",
+  topAlarmes: "Quantas vezes cada tipo de alarme ocorreu no período, do mais para o menos frequente",
+  duracao: "Tempo médio que cada ocorrência de cada tipo de alarme permanece ativa",
+  regioes: "Sub áreas e corredores com maior concentração de falhas no período.",
+  porSubarea: "Falhas e dispositivos ativos em cada sub área, da que mais falha para a que menos",
+  porCorredor: "Falhas e dispositivos ativos em cada corredor, do que mais falha para o que menos",
+  duracaoTotal: "Tempo total em alarme por tipo no período (ocorrências × duração)",
   volumeErros: "Falhas de dispositivos no período; passe o mouse para ver quais dispositivos falharam",
   topDispositivos: "Dispositivos com mais falhas no período",
   faixaIdade: "Falhas agrupadas pelo tempo de uso do dispositivo",
