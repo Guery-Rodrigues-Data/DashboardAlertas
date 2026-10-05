@@ -1,0 +1,6 @@
+{
+  "name": "dashboard-alertas-prototipo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Protótipo do Dashboard de Alertas (dataprom) — site estático, sem build."
+}
