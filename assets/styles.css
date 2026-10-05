@@ -485,3 +485,5 @@ main { display: flex; flex-direction: column; gap: 16px; }
 .flt-foot { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; padding: 12px 16px; border-top: 1px solid var(--border); background: #fff; }
 .flt-dep { font-size: 11px; color: var(--text-disabled); }
 .flt-tools .pop-link { margin-left: auto; }
+/* etiqueta discreta ao lado de Data e Filtros: sinaliza que esses dois controles ainda estão em revisão de UX */
+.tag-revisar { align-self: center; padding: 2px 8px; border-radius: 99px; background: var(--neutral-100); color: var(--text-disabled); font-weight: 600; font-size: 10px; line-height: 14px; letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; cursor: default; }
