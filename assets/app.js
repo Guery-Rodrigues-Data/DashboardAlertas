@@ -1174,8 +1174,9 @@ function abrirPopover(qual) {
     $(POPS.data.box).innerHTML = htmlData(rascunhoData);
   } else {
     const f0 = copiarFiltros(estado.filtros);
-    // abre a 1ª seção e as que já têm filtro ativo
-    rascunhoFiltros = { ...f0, aberto: null, secoes: Object.fromEntries(GRUPOS_FILTRO.map((g, i) => [g, i === 0 || ativosDoGrupo(g, f0) > 0])) };
+    // abre só a seção da aba atual; as outras ficam recolhidas, com o contador "N ativos" no cabeçalho
+    const grupoDaAba = { alarme: "Alarme", dispositivo: "Dispositivo", regiao: "Região" }[rotaAtual()];
+    rascunhoFiltros = { ...f0, aberto: null, secoes: Object.fromEntries(GRUPOS_FILTRO.map((g) => [g, g === grupoDaAba])) };
     $(POPS.filtros.box).innerHTML = htmlFiltros(rascunhoFiltros);
   }
   $(POPS[qual].box).hidden = false;
