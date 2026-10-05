@@ -933,29 +933,61 @@ const TIPOS_FILTRO = MODELO.TIPOS;
 let DISPOSITIVOS_FILTRO = null; // 545 itens; só é montado quando alguém abre o campo
 const dispositivosFiltro = () => DISPOSITIVOS_FILTRO || (DISPOSITIVOS_FILTRO = MODELO.dispositivos(hoje()));
 
+const CAT = MODELO.CATALOGO;
+const unicos = (a) => [...new Set(a)];
+const SUBAREAS_FILTRO = [...CAT.subareas.map((s) => s.n), CAT.semSubarea]; // "Sem sub área" cobre dispositivo sem cadastro
+
+// Campos agrupados por seção. Fabricante e Modelo dependem de Tipo (Modelo também de Fabricante); Corredor depende
+// de Sub área: cada um só oferece o que existe no campo anterior, para não dar para escolher combinação inexistente.
 const CAMPOS_FILTRO = [
-  { id: "crit", rotulo: "Criticidade", busca: false },
-  { id: "alarmes", rotulo: "Alarmes", busca: true, placeholder: "Pesquisar alarme" },
-  { id: "tipos", rotulo: "Tipo de dispositivo", busca: false },
-  { id: "dispositivos", rotulo: "Dispositivo", busca: true, placeholder: "Pesquisar por código (ex.: SEM-1044)" },
+  { id: "crit", grupo: "Alarme", rotulo: "Criticidade", busca: false },
+  { id: "alarmes", grupo: "Alarme", rotulo: "Alarmes", busca: true, placeholder: "Pesquisar alarme" },
+  { id: "tipos", grupo: "Dispositivo", rotulo: "Tipo de dispositivo", busca: true, placeholder: "Pesquisar tipo" },
+  { id: "fabricantes", grupo: "Dispositivo", rotulo: "Fabricante", busca: true, placeholder: "Pesquisar fabricante" },
+  { id: "modelos", grupo: "Dispositivo", rotulo: "Modelo", busca: true, placeholder: "Pesquisar modelo" },
+  { id: "dispositivos", grupo: "Dispositivo", rotulo: "Dispositivo", busca: true, placeholder: "Pesquisar por código (ex.: SEM-1044)" },
+  { id: "subareas", grupo: "Região", rotulo: "Sub Área", busca: true, placeholder: "Pesquisar sub área" },
+  { id: "corredores", grupo: "Região", rotulo: "Corredor", busca: true, placeholder: "Pesquisar corredor" },
 ];
-const opcoesTotais = (id) => ({ crit: CRITICIDADES.length, alarmes: ALARMES_FILTRO.length, tipos: TIPOS_FILTRO.length, dispositivos: MODELO.PARQUE })[id];
+const DEPENDENTES = { tipos: ["fabricantes", "modelos"], fabricantes: ["modelos"], subareas: ["corredores"] };
+
+// opções válidas do campo, dado o que está marcado nos campos de que ele depende
+function disponiveis(id, f) {
+  const tiposMarcados = CAT.tipos.filter((t) => f.tipos.includes(t.tipo));
+  switch (id) {
+    case "crit": return CRITICIDADES.map((c) => c.n);
+    case "alarmes": return ALARMES_FILTRO;
+    case "tipos": return TIPOS_FILTRO;
+    case "fabricantes": return unicos(tiposMarcados.flatMap((t) => t.marcas.map((m) => m.fab)));
+    case "modelos": return unicos(tiposMarcados.flatMap((t) => t.marcas.filter((m) => f.fabricantes.includes(m.fab)).map((m) => m.modelo)));
+    case "subareas": return SUBAREAS_FILTRO;
+    case "corredores": return [...unicos(CAT.subareas.filter((x) => f.subareas.includes(x.n)).flatMap((x) => x.corredores)), CAT.semCorredor];
+    default: return []; // dispositivos: 545 itens, lista vazia = todos
+  }
+}
+const opcoesTotais = (id, f) => (id === "dispositivos" ? MODELO.PARQUE : disponiveis(id, f).length);
 
 // Padrão: tudo marcado (= nada filtrado). Exceção: "Dispositivo" tem 545 opções, então lista vazia = todos;
 // marcar itens restringe a eles.
-const filtrosPadrao = () => ({ crit: CRITICIDADES.map((c) => c.n), alarmes: [...ALARMES_FILTRO], tipos: [...TIPOS_FILTRO], dispositivos: [] });
+function filtrosPadrao() {
+  const f = { crit: CRITICIDADES.map((c) => c.n), alarmes: [...ALARMES_FILTRO], tipos: [...TIPOS_FILTRO], subareas: [...SUBAREAS_FILTRO], dispositivos: [] };
+  f.fabricantes = disponiveis("fabricantes", f);
+  f.modelos = disponiveis("modelos", f);
+  f.corredores = disponiveis("corredores", f);
+  return f;
+}
 estado.filtros = filtrosPadrao();
 let rascunhoFiltros = null; // cópia editável + `aberto` (campo com a lista aberta)
 
-const restritoCampo = (id, f) => (id === "dispositivos" ? f.dispositivos.length > 0 : f[id].length < opcoesTotais(id));
+const restritoCampo = (id, f) => (id === "dispositivos" ? f.dispositivos.length > 0 : f[id].length < opcoesTotais(id, f));
 // O contador do botão mostra quantos campos estão restringidos (0 = tudo marcado, sem badge).
 const totalFiltros = (f) => CAMPOS_FILTRO.filter((c) => restritoCampo(c.id, f)).length;
-const filtrosValidos = (f) => f.crit.length > 0 && f.alarmes.length > 0 && f.tipos.length > 0; // "Dispositivo" vazio = todos
+const filtrosValidos = (f) => CAMPOS_FILTRO.every((c) => c.id === "dispositivos" || f[c.id].length > 0); // "Dispositivo" vazio = todos
 
 function resumoCampo(id, f) {
   const sel = f[id];
   if (id === "dispositivos") return sel.length ? (sel.length <= 2 ? sel.join(", ") : `${sel.length} selecionados`) : `Todos (${MODELO.PARQUE})`;
-  const tot = opcoesTotais(id);
+  const tot = opcoesTotais(id, f);
   if (sel.length === tot) return `Todos (${tot})`;
   if (!sel.length) return "Nenhum";
   return sel.length <= 2 ? sel.join(", ") : `${sel.length} de ${tot} selecionados`;
@@ -963,13 +995,12 @@ function resumoCampo(id, f) {
 
 function textoLinkTodos(id, f) {
   if (id === "dispositivos") return f.dispositivos.length ? "Limpar seleção" : "";
-  return f[id].length === opcoesTotais(id) ? "Desmarcar todos" : "Marcar todos";
+  return f[id].length === opcoesTotais(id, f) ? "Desmarcar todos" : "Marcar todos";
 }
 
-function opcoesDoCampo(id) {
+function opcoesDoCampo(id, f) {
   if (id === "crit") return CRITICIDADES.map((c) => ({ v: c.n, cor: c.cor }));
-  if (id === "alarmes") return ALARMES_FILTRO.map((n) => ({ v: n }));
-  if (id === "tipos") return TIPOS_FILTRO.map((n) => ({ v: n }));
+  if (id !== "dispositivos") return disponiveis(id, f).map((n) => ({ v: n }));
   // dispositivos que mais falharam no período (com os demais filtros) primeiro, com a contagem ao lado;
   // a maioria dos 545 não tem falha no período, e escolher "às cegas" daria tela vazia
   const r = MODELO.resumir(estado.periodo.de, estado.periodo.ate, { ...estado.filtros, dispositivos: [] }, hoje());
@@ -981,16 +1012,50 @@ function opcoesDoCampo(id) {
 
 const ICONE_BUSCA = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="5" stroke="#737373" stroke-width="1.5"/><path d="M11 11l3.5 3.5" stroke="#737373" stroke-width="1.5" stroke-linecap="round"/></svg>';
 
+/* Só Criticidade (4 níveis fixos) é chip. Todo o resto é um campo de uma linha que abre uma lista com busca, porque
+   tipo, fabricante e modelo vão crescer. Nos campos em cascata a lista só traz o que vale para o recorte de que dependem. */
+const CAMPOS_CHIP = ["crit"]; // só o que tem conjunto fixo e pequeno; Tipo, Fabricante e Modelo podem crescer muito
+const GRUPOS_FILTRO = [...new Set(CAMPOS_FILTRO.map((c) => c.grupo))];
+const camposDoGrupo = (g) => CAMPOS_FILTRO.filter((c) => c.grupo === g);
+const ativosDoGrupo = (g, f) => camposDoGrupo(g).filter((c) => restritoCampo(c.id, f)).length;
+const DEPENDE_DE = { fabricantes: "Tipo", modelos: "Tipo e Fabricante", corredores: "Sub Área" };
+const COR_CRIT_FILTRO = Object.fromEntries(CRITICIDADES.map((c) => [c.n, c.cor]));
+const TOP_DISPOSITIVOS_FILTRO = 8; // sem busca, o campo Dispositivo mostra só os que mais falharam
+
+function universoChips(id) {
+  if (id === "crit") return CRITICIDADES.map((c) => c.n);
+  return [];
+}
+
 function htmlCampoFiltro(c, r) {
   const aberto = r.aberto === c.id;
   const sel = r[c.id];
   const link = textoLinkTodos(c.id, r);
-  const lista = !aberto ? "" : opcoesDoCampo(c.id).map((o) => `
-      <label class="flt-check" data-nome="${`${o.v} ${o.sub || ""}`.toLowerCase()}"><input type="checkbox" data-flt="${c.id}" value="${o.v}" ${sel.includes(o.v) ? "checked" : ""}>${o.cor ? `<span class="dot" style="background:${o.cor}"></span>` : ""}<span>${o.v}</span>${o.sub ? `<span class="cnt">${o.sub}</span>` : ""}</label>`).join("");
+  const botaoLink = link ? `<button type="button" class="pop-link" data-act="flt-todos" data-campo="${c.id}" data-link="${c.id}">${link}</button>` : "";
+
+  if (CAMPOS_CHIP.includes(c.id)) {
+    const disp = disponiveis(c.id, r);
+    const chips = universoChips(c.id).map((v) => {
+      const ok = disp.includes(v);
+      return `<label class="flt-chip${ok ? "" : " is-off"}"${ok ? "" : ` title="Indisponível para o recorte marcado em ${DEPENDE_DE[c.id]}"`}><input type="checkbox" data-flt="${c.id}" value="${v}" ${sel.includes(v) ? "checked" : ""} ${ok ? "" : "disabled"}>${c.id === "crit" ? `<span class="dot" style="background:${COR_CRIT_FILTRO[v]}"></span>` : ""}<span>${v}</span></label>`;
+    }).join("");
+    return `
+      <div class="flt-field">
+        <div class="flt-label-row"><div class="flt-label">${c.rotulo}</div>${botaoLink}</div>
+        <div class="flt-chips">${chips}</div>
+      </div>`;
+  }
+
+  const lista = !aberto ? "" : opcoesDoCampo(c.id, r).map((o, idx) => {
+    const extra = c.id === "dispositivos" && idx >= TOP_DISPOSITIVOS_FILTRO && !sel.includes(o.v); // só aparece na busca
+    return `
+      <label class="flt-check" data-nome="${`${o.v} ${o.sub || ""}`.toLowerCase()}"${extra ? " data-extra hidden" : ""}><input type="checkbox" data-flt="${c.id}" value="${o.v}" ${sel.includes(o.v) ? "checked" : ""}>${o.cor ? `<span class="dot" style="background:${o.cor}"></span>` : ""}<span>${o.v}</span>${o.sub ? `<span class="cnt">${o.sub}</span>` : ""}</label>`;
+  }).join("");
+  const dica = aberto && c.id === "dispositivos" ? `<div class="flt-dica" data-dica>Mostrando os ${TOP_DISPOSITIVOS_FILTRO} que mais falharam no período. Digite um código para buscar entre os ${MODELO.PARQUE}.</div>` : "";
   const vazioInvalido = c.id !== "dispositivos" && sel.length === 0;
   return `
     <div class="flt-field${aberto ? " is-open" : ""}">
-      <div class="flt-label">${c.rotulo}</div>
+      <div class="flt-label-row"><div class="flt-label">${c.rotulo}</div></div>
       <button type="button" class="flt-select${vazioInvalido ? " is-erro" : ""}" data-act="flt-campo" data-campo="${c.id}" aria-expanded="${aberto}">
         <span class="flt-resumo" data-resumo="${c.id}">${resumoCampo(c.id, r)}</span>
         <span class="ico12">${img("reg", "739b6.svg", 16, 16)}</span>
@@ -998,39 +1063,91 @@ function htmlCampoFiltro(c, r) {
       ${aberto ? `
       <div class="flt-drop">
         ${c.busca ? `<div class="flt-search">${ICONE_BUSCA}<input type="search" data-busca="${c.id}" placeholder="${c.placeholder}" autocomplete="off"></div>` : ""}
-        <div class="flt-tools"><button type="button" class="pop-link" data-act="flt-todos" data-campo="${c.id}" data-link="${c.id}" ${link ? "" : "hidden"}>${link}</button></div>
-        <div class="flt-list" data-lista="${c.id}">${lista}<div class="flt-empty" data-vazio hidden>Nada encontrado.</div></div>
+        <div class="flt-tools">${DEPENDE_DE[c.id] ? `<span class="flt-dep">Só o que vale para: ${DEPENDE_DE[c.id]}</span>` : ""}<button type="button" class="pop-link" data-act="flt-todos" data-campo="${c.id}" data-link="${c.id}" ${link ? "" : "hidden"}>${link}</button></div>
+        <div class="flt-list" data-lista="${c.id}">${dica}${lista}<div class="flt-empty" data-vazio hidden>Nada encontrado.</div></div>
       </div>` : ""}
     </div>`;
 }
 
+// cabeçalho da seção: nome, nº de campos filtrados e "×" que limpa só a seção
+function htmlSecaoHead(g, r) {
+  const aberta = r.secoes[g];
+  const n = ativosDoGrupo(g, r);
+  return `
+    <button type="button" class="flt-sec-btn" data-act="flt-secao" data-grupo="${g}" aria-expanded="${aberta}">
+      <span>${g}</span>${n ? `<span class="flt-sec-n">${n} ${n === 1 ? "ativo" : "ativos"}</span>` : ""}<span class="ico12">${img("reg", "739b6.svg", 16, 16)}</span>
+    </button>
+    ${n ? `<button type="button" class="flt-sec-x" data-act="flt-limpar-secao" data-grupo="${g}" aria-label="Limpar filtros de ${g}" title="Limpar esta seção">×</button>` : ""}`;
+}
+function htmlSecao(g, r) {
+  return `
+    <section class="flt-sec${r.secoes[g] ? " is-open" : ""}" data-sec="${g}">
+      <div class="flt-sec-head">${htmlSecaoHead(g, r)}</div>
+      ${r.secoes[g] ? `<div class="flt-sec-body">${camposDoGrupo(g).map((c) => htmlCampoFiltro(c, r)).join("")}</div>` : ""}
+    </section>`;
+}
+
+// botão principal mostra quantas ocorrências a tela terá; sem nenhuma, não deixa aplicar (evita tela vazia)
+function estadoAplicar(f) {
+  if (!filtrosValidos(f)) return { texto: "Aplicar", ativo: false };
+  const n = MODELO.resumir(estado.periodo.de, estado.periodo.ate, copiarFiltros(f), hoje()).total;
+  if (!n) return { texto: "Nenhuma ocorrência", ativo: false };
+  return { texto: `Aplicar · ${fmtInt(n)} ${n === 1 ? "ocorrência" : "ocorrências"}`, ativo: true };
+}
+
 function htmlFiltros(r) {
   const ok = filtrosValidos(r);
+  const ap = estadoAplicar(r);
   return `
-    <div class="flt-head"><strong>Filtros</strong><button type="button" class="pop-link" data-act="flt-limpar">Restaurar padrão</button></div>
-    <div class="flt-fields">${CAMPOS_FILTRO.map((c) => htmlCampoFiltro(c, r)).join("")}</div>
+    <div class="flt-head"><strong>Filtros</strong></div>
+    ${GRUPOS_FILTRO.map((g) => htmlSecao(g, r)).join("")}
     <div class="flt-erro" id="fltErro" ${ok ? "hidden" : ""}>Deixe ao menos uma opção marcada em cada campo.</div>
-    <div class="pop-foot">
-      <button type="button" class="pop-btn" data-act="flt-cancelar">Cancelar</button>
-      <button type="button" class="pop-btn primary" id="fltAplicar" data-act="flt-aplicar" ${ok ? "" : "disabled"}>Aplicar</button>
+    <div class="flt-foot">
+      <button type="button" class="pop-link" data-act="flt-limpar">Limpar tudo</button>
+      <button type="button" class="pop-btn primary" id="fltAplicar" data-act="flt-aplicar" ${ap.ativo ? "" : "disabled"}>${ap.texto}</button>
     </div>`;
 }
 
-// Depois de marcar/desmarcar: atualiza resumo, link "marcar todos" e a validação sem redesenhar a lista.
-function sincronizarFiltros(campo) {
-  const f = rascunhoFiltros;
-  const resumo = document.querySelector(`[data-resumo="${campo}"]`);
-  if (resumo) resumo.textContent = resumoCampo(campo, f);
-  const link = document.querySelector(`[data-link="${campo}"]`);
-  if (link) { const t = textoLinkTodos(campo, f); link.textContent = t; link.hidden = !t; }
-  const ok = filtrosValidos(f);
-  $("#fltAplicar").disabled = !ok;
-  $("#fltErro").hidden = ok;
-  const sel = document.querySelector(`.flt-select[data-campo="${campo}"]`);
-  if (sel) sel.classList.toggle("is-erro", campo !== "dispositivos" && f[campo].length === 0);
+function redesenharFiltros() {
+  const box = $(POPS.filtros.box);
+  const topo = box.scrollTop;
+  box.innerHTML = htmlFiltros(rascunhoFiltros);
+  box.scrollTop = topo;
 }
 
-const copiarFiltros = (f) => ({ crit: [...f.crit], alarmes: [...f.alarmes], tipos: [...f.tipos], dispositivos: [...f.dispositivos] });
+// Depois de marcar/desmarcar em campo de LISTA: atualiza só resumo, link, cabeçalhos e rodapé (a busca e a lista
+// abertas não são redesenhadas). Criticidade (chips) redesenha o painel inteiro.
+function sincronizarFiltros(campo) {
+  const f = rascunhoFiltros;
+  [campo, ...(DEPENDENTES[campo] || [])].forEach((id) => {
+    const resumo = document.querySelector(`[data-resumo="${id}"]`);
+    if (resumo) resumo.textContent = resumoCampo(id, f);
+    const link = document.querySelector(`[data-link="${id}"]`);
+    if (link) { const t = textoLinkTodos(id, f); link.textContent = t; link.hidden = !t; }
+    const sel = document.querySelector(`.flt-select[data-campo="${id}"]`);
+    if (sel) sel.classList.toggle("is-erro", id !== "dispositivos" && f[id].length === 0);
+  });
+  GRUPOS_FILTRO.forEach((g) => { const h = document.querySelector(`[data-sec="${g}"] .flt-sec-head`); if (h) h.innerHTML = htmlSecaoHead(g, f); });
+  $("#fltErro").hidden = filtrosValidos(f);
+  const ap = estadoAplicar(f), b = $("#fltAplicar");
+  b.textContent = ap.texto;
+  b.disabled = !ap.ativo;
+}
+
+// Muda um campo e acerta os que dependem dele: quem estava em "todos" continua em "todos" do novo recorte; quem estava
+// restrito perde só o que deixou de existir (some da lista de opções).
+function mudarCampo(f, campo, mudar) {
+  const deps = DEPENDENTES[campo] || [];
+  const antes = deps.map((d) => disponiveis(d, f).length);
+  f[campo] = mudar(f[campo]);
+  deps.forEach((d, i) => {
+    const eraTodos = f[d].length === antes[i];
+    const disp = disponiveis(d, f);
+    f[d] = eraTodos ? [...disp] : f[d].filter((v) => disp.includes(v));
+  });
+}
+
+const copiarFiltros = (f) => Object.fromEntries(CAMPOS_FILTRO.map((c) => [c.id, [...f[c.id]]]));
 
 /* ---------- popovers: abrir/fechar ---------- */
 
@@ -1056,7 +1173,9 @@ function abrirPopover(qual) {
     aguardandoFim = false;
     $(POPS.data.box).innerHTML = htmlData(rascunhoData);
   } else {
-    rascunhoFiltros = { ...copiarFiltros(estado.filtros), aberto: null };
+    const f0 = copiarFiltros(estado.filtros);
+    // abre a 1ª seção e as que já têm filtro ativo
+    rascunhoFiltros = { ...f0, aberto: null, secoes: Object.fromEntries(GRUPOS_FILTRO.map((g, i) => [g, i === 0 || ativosDoGrupo(g, f0) > 0])) };
     $(POPS.filtros.box).innerHTML = htmlFiltros(rascunhoFiltros);
   }
   $(POPS[qual].box).hidden = false;
@@ -1124,20 +1243,27 @@ function aoClicarPopover(e) {
     case "data-aplicar": estado.periodo = { id: rascunhoData.id, de: rascunhoData.de, ate: rascunhoData.ate }; aplicarMudancas(); fecharPopovers(); break;
     case "data-cancelar": case "flt-cancelar": fecharPopovers(); break;
     case "flt-aplicar": estado.filtros = copiarFiltros(rascunhoFiltros); aplicarMudancas(); fecharPopovers(); break;
-    case "flt-limpar": rascunhoFiltros = { ...filtrosPadrao(), aberto: null }; $(POPS.filtros.box).innerHTML = htmlFiltros(rascunhoFiltros); break;
+    case "flt-limpar": rascunhoFiltros = { ...filtrosPadrao(), aberto: null, secoes: rascunhoFiltros.secoes }; redesenharFiltros(); break;
+    case "flt-secao": rascunhoFiltros.secoes[act.dataset.grupo] = !rascunhoFiltros.secoes[act.dataset.grupo]; redesenharFiltros(); break;
+    case "flt-limpar-secao": {
+      const padrao = filtrosPadrao();
+      camposDoGrupo(act.dataset.grupo).forEach((c) => { rascunhoFiltros[c.id] = padrao[c.id]; });
+      redesenharFiltros();
+      break;
+    }
     case "flt-campo": {
       const campo = act.dataset.campo;
       rascunhoFiltros.aberto = rascunhoFiltros.aberto === campo ? null : campo;
-      $(POPS.filtros.box).innerHTML = htmlFiltros(rascunhoFiltros);
+      redesenharFiltros();
       const busca = document.querySelector("[data-busca]");
       if (busca) busca.focus();
       break;
     }
     case "flt-todos": {
-      const campo = act.dataset.campo;
-      if (campo === "dispositivos") rascunhoFiltros.dispositivos = [];
-      else rascunhoFiltros[campo] = rascunhoFiltros[campo].length === opcoesTotais(campo) ? [] : opcoesDoCampo(campo).map((o) => o.v);
-      $(POPS.filtros.box).innerHTML = htmlFiltros(rascunhoFiltros);
+      const campo = act.dataset.campo, f = rascunhoFiltros;
+      if (campo === "dispositivos") f.dispositivos = [];
+      else mudarCampo(f, campo, (l) => (l.length === opcoesTotais(campo, f) ? [] : opcoesDoCampo(campo, f).map((o) => o.v)));
+      redesenharFiltros();
       break;
     }
   }
@@ -1208,11 +1334,9 @@ function iniciar() {
   document.addEventListener("change", (e) => {
     const cb = e.target.closest("input[data-flt]");
     if (!cb || !rascunhoFiltros) return;
-    const lista = rascunhoFiltros[cb.dataset.flt];
-    const i = lista.indexOf(cb.value);
-    if (cb.checked && i < 0) lista.push(cb.value);
-    if (!cb.checked && i >= 0) lista.splice(i, 1);
-    sincronizarFiltros(cb.dataset.flt);
+    const campo = cb.dataset.flt;
+    mudarCampo(rascunhoFiltros, campo, (l) => (cb.checked ? (l.includes(cb.value) ? l : [...l, cb.value]) : l.filter((x) => x !== cb.value)));
+    if (CAMPOS_CHIP.includes(campo)) redesenharFiltros(); else sincronizarFiltros(campo);
   });
   document.addEventListener("input", (e) => {
     const campo = e.target.dataset && e.target.dataset.busca;
@@ -1220,11 +1344,13 @@ function iniciar() {
     const q = e.target.value.trim().toLowerCase();
     let visiveis = 0;
     document.querySelectorAll(`[data-lista="${campo}"] [data-nome]`).forEach((el) => {
-      const ok = !q || el.dataset.nome.includes(q);
+      const ok = q ? el.dataset.nome.includes(q) : !el.hasAttribute("data-extra"); // sem busca, "extra" (dispositivos fora do top) fica oculto
       el.hidden = !ok;
       if (ok) visiveis++;
     });
     document.querySelector(`[data-lista="${campo}"] [data-vazio]`).hidden = visiveis > 0;
+    const dica = document.querySelector(`[data-lista="${campo}"] [data-dica]`);
+    if (dica) dica.hidden = !!q;
   });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") fecharPopovers(); });
 

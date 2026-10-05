@@ -206,9 +206,12 @@ const MODELO = (() => {
     const okFab = (e) => !filtros || !filtros.fabricantes || filtros.fabricantes.includes(parque[e.dev].fab);
     const okModelo = (e) => !filtros || !filtros.modelos || filtros.modelos.includes(parque[e.dev].modelo);
     const okFaixa = (e) => !filtros || !filtros.faixas || filtros.faixas.includes(FAIXAS[parque[e.dev].faixa].id);
+    // sub área/corredor: lista marcada; "Sem sub área"/"Sem corredor" cobre dispositivo sem cadastro
+    const okSub = (e) => !filtros || !filtros.subareas || filtros.subareas.includes(subDe(parque[e.dev]));
+    const okCor = (e) => !filtros || !filtros.corredores || filtros.corredores.includes(corDe(parque[e.dev]));
     const okDisp = (e) => !filtros || !filtros.dispositivos || !filtros.dispositivos.length || filtros.dispositivos.includes(parque[e.dev].id);
     // eventos do período que passam pelo painel de filtros
-    const base0 = eventos.filter((e) => e.dia >= i0 && e.dia <= i1 && okCrit(e) && okAlarme(e) && okTipo(e) && okFab(e) && okModelo(e) && okFaixa(e) && okDisp(e));
+    const base0 = eventos.filter((e) => e.dia >= i0 && e.dia <= i1 && okCrit(e) && okAlarme(e) && okTipo(e) && okFab(e) && okModelo(e) && okFaixa(e) && okSub(e) && okCor(e) && okDisp(e));
     // seleção por clique: valor do evento em cada dimensão; `exceto` = dimensões que NÃO se aplicam (o cartão de origem)
     const valorDe = {
       tipos: (e) => parque[e.dev].tipo, fabricantes: (e) => parque[e.dev].fab, modelos: (e) => parque[e.dev].modelo,
@@ -364,7 +367,13 @@ const MODELO = (() => {
 
   const FABRICANTES = [...new Set(TIPOS.flatMap((t) => t.marcas.map((m) => m.fab)))];
   const MODELOS = TIPOS.flatMap((t) => t.marcas.map((m) => m.modelo));
-  return { resumir, resumirAnterior, selecaoVazia, SUBAREAS, CENTRO_MAPA, dataMinima, maximoDoEixo, dispositivos, ALARMES, FAIXAS, CRITICIDADES, PARQUE, DIAS_BASE, FABRICANTES, MODELOS, TIPOS: TIPOS.map((t) => t.tipo) };
+  // catálogo para os filtros em cascata (tipo > fabricante > modelo; sub área > corredor)
+  const CATALOGO = {
+    tipos: TIPOS.map((t) => ({ tipo: t.tipo, marcas: t.marcas.map((m) => ({ fab: m.fab, modelo: m.modelo })) })),
+    subareas: SUBAREAS.map((s) => ({ n: s.n, corredores: [...s.corredores] })),
+    semSubarea: "Sem sub área", semCorredor: "Sem corredor",
+  };
+  return { CATALOGO, resumir, resumirAnterior, selecaoVazia, SUBAREAS, CENTRO_MAPA, dataMinima, maximoDoEixo, dispositivos, ALARMES, FAIXAS, CRITICIDADES, PARQUE, DIAS_BASE, FABRICANTES, MODELOS, TIPOS: TIPOS.map((t) => t.tipo) };
 })();
 
 if (typeof module !== "undefined") module.exports = { MODELO };
