@@ -136,7 +136,7 @@ DASH.subtitulos = {
   porCorredor: "Falhas e dispositivos ativos em cada corredor, do que mais falha para o que menos",
   duracaoTotal: "Tempo total em alarme por tipo no período (ocorrências × duração)",
   volumeErros: "Falhas de dispositivos no período; passe o mouse para ver quais dispositivos falharam",
-  topDispositivos: "Dispositivos com mais falhas no período",
+  topDispositivos: "Falhas de cada dispositivo no período, do maior para o menor",
   faixaIdade: "Falhas agrupadas pelo tempo de uso do dispositivo",
   tipoDispositivo: "Participação de cada tipo de dispositivo no total de falhas",
   fabricante: "Participação de cada fabricante no total de falhas",

@@ -247,7 +247,7 @@ main { display: flex; flex-direction: column; gap: 16px; }
 
 /* ---------- gráfico de pizza ---------- */
 .pie-card { flex: none; justify-content: space-between; }
-.pie-body { display: flex; align-items: center; gap: 48px; flex: 1 1 0; min-height: 0; width: 100%; }
+.pie-body { display: flex; align-items: center; gap: 48px; flex: 1 1 0; min-height: 189.2px; width: 100%; }
 .pie { position: relative; width: 186.761px; height: 189.2px; flex: none; }
 .pie > img { width: 100%; height: 100%; }
 .pie-labels { position: absolute; left: 4px; top: 28px; }
@@ -400,19 +400,19 @@ main { display: flex; flex-direction: column; gap: 16px; }
 [data-sel] { cursor: pointer; }
 .brow[data-sel] { padding: 4px 6px; margin: -4px -6px; border-radius: 6px; transition: background 0.12s, opacity 0.12s; }
 .brow[data-sel]:hover { background: var(--neutral-100); }
-.brow.sel-on { background: #fdf3f2; box-shadow: inset 3px 0 0 var(--icon-brand); }
+.brow.sel-on { background: #fdf3f2; }
 .brow.sel-off { opacity: 0.45; }
 .legend-item[data-sel] { padding: 4px 6px; margin: 0 -6px; border-radius: 6px; }
 .legend-item[data-sel]:hover { background: var(--neutral-100); }
 .legend-item.sel-off { opacity: 0.45; }
-.legend-item.sel-on { background: #fdf3f2; box-shadow: inset 3px 0 0 var(--icon-brand); }
+.legend-item.sel-on { background: #fdf3f2; }
 .pie .fatia.sel-off { opacity: 0.35; }
 .pie .fatia.sel-on { filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.35)); }
 .mx-col[data-sel]:hover { background: var(--neutral-200); }
 .mx-col.sel-on { background: var(--error-100); color: var(--text-brand); }
 .mx-cell.row-name[data-sel]:hover { background: #d4d4d4; }
 .mx-line.body.sel-off { opacity: 0.4; }
-.mx-line.body.sel-on-linha .mx-cell.row-name { background: var(--error-100); color: var(--text-brand); box-shadow: inset 3px 0 0 var(--icon-brand); }
+.mx-line.body.sel-on-linha .mx-cell.row-name { background: var(--error-100); color: var(--text-brand); }
 .dot6 { width: 6px; height: 6px; border-radius: 50%; flex: none; }
 .legend-item[data-sel] { cursor: pointer; }
 /* Top Alarmes e Duração de Alarmes: cinza-azulado bem escuro (slate) no lugar do cinza claro do Figma */

@@ -17,8 +17,7 @@ const ROTAS = [
 const estado = {
   pag: { subareas: 0, corredores: 0, topDisp: 0, tipos: 0, fabricantes: 0, modelos: 0, matriz: 0, topAlarmes: 0, duracao: 0, matrizRegiao: 0 },
   selecao: MODELO.selecaoVazia(), // cliques na tela (aba Dispositivo): tipo, fabricante, modelo, faixa, dispositivo, alarme
-  modoVolume: "criticidade",
-  modoDuracao: "media", // cartão de duração dos alarmes: "media" (por ocorrência) ou "total" (tempo total em alarme) // gráfico de volume: "criticidade" (4 linhas) ou "total" (1 linha)
+  modoDuracao: "media", // cartão de duração dos alarmes: "media" (por ocorrência) ou "total" (tempo total em alarme)
   totalPag: {}, // nº de páginas das listas dinâmicas (preenchido ao desenhar a tela)
   matrizRegiao: "subarea",
 };
@@ -255,8 +254,7 @@ function posicionarGrafico(canvas, i, comTip) {
   if (!comTip) return;
   const linha = (s, v, extra = "") => `<div class="tip-row${extra}"><span class="tip-dot" style="background:${s.cor}"></span><span>${s.n}</span><b>${fmtValor(spec, v)}</b></div>`;
   // no modo Total, a caixa mostra o total e, abaixo, a composição por criticidade
-  const detalhe = spec.detalhe ? `<div class="tip-sep"></div>${SERIES_VOLUME.map((s) => linha(s, spec.detalhe[s.n][i], " tip-sub")).join("")}` : "";
-  tip.innerHTML = `<strong>${spec.rotulosTip[i]}</strong>${series.map((s) => linha(s, spec.valores[s.n][i])).join("")}${detalhe}${spec.listaTip ? htmlListaTip(spec.listaTip[i], spec.rotuloLista) : ""}`;
+  tip.innerHTML = `<strong>${spec.rotulosTip[i]}</strong>${series.map((s) => linha(s, spec.valores[s.n][i])).join("")}${spec.listaTip ? htmlListaTip(spec.listaTip[i], spec.rotuloLista) : ""}`;
   tip.classList.toggle("largo", !!spec.listaTip);
   tip.style.left = x;
   tip.classList.toggle("to-left", i > (N - 1) / 2);
@@ -273,28 +271,9 @@ function indiceDoPonteiro(canvas, clientX) {
   return Math.round(f * (N - 1));
 }
 
-/* ---------- alternância Por criticidade / Total ----------
-   O total é a soma das 4 linhas e tem escala própria: por isso é uma alternância, e não uma 5ª linha
-   (ela esticaria o eixo e achataria as outras quatro). */
-const COR_TOTAL = "#404041";
-
-function especTotal(spec) {
-  const soma = spec.rotulos.map((_, i) => SERIES_VOLUME.reduce((a, s) => a + spec.valores[s.n][i], 0));
-  return { ...spec, series: [{ n: "Total", cor: COR_TOTAL }], valores: { Total: soma }, detalhe: spec.valores, eixoMax: MODELO.maximoDoEixo(Math.max(0, ...soma)) };
-}
-const aplicarModoVolume = (spec) => (estado.modoVolume === "total" ? especTotal(spec) : spec);
+const COR_TOTAL = "#404041"; // série única do gráfico de falhas (aba Dispositivo)
 
 const chaveLegenda = (cor, n) => `<div class="chart-key"><span class="dot8" style="background:${cor}"></span><span>${n}</span></div>`;
-
-// alternância pequena, no canto do cabeçalho do cartão
-function toggleVolume() {
-  const total = estado.modoVolume === "total";
-  return `
-    <div class="mx-seg small" role="tablist" aria-label="Mostrar o volume por">
-      <button type="button" role="tab" data-vol="criticidade" class="${total ? "" : "is-on"}">Por criticidade</button>
-      <button type="button" role="tab" data-vol="total" class="${total ? "is-on" : ""}">Total</button>
-    </div>`;
-}
 
 // alternância "Média | Total" do cartão de duração
 function toggleDuracao() {
@@ -308,8 +287,7 @@ function toggleDuracao() {
 
 // legenda embaixo do gráfico
 function legendaVolume() {
-  const total = estado.modoVolume === "total";
-  return `<div class="chart-legend">${total ? chaveLegenda(COR_TOTAL, "Total") : SERIES_VOLUME.map((s) => chaveLegenda(s.cor, s.n)).join("")}</div>`;
+  return `<div class="chart-legend">${SERIES_VOLUME.map((s) => chaveLegenda(s.cor, s.n)).join("")}</div>`;
 }
 
 /* ---------- matriz de correlação ---------- */
@@ -612,9 +590,8 @@ function telaAlarme() {
             <div class="head-title"><div class="ico20" style="padding:4px">${img("aldist", "5f4b6.svg", 16, 16)}</div><span class="t">Volume de Alarmes</span></div>
             <div class="head-sub">${DASH.subtitulos.volumeAlarmes}</div>
           </div>
-          ${toggleVolume()}
         </div>
-        ${graficoLinhas(aplicarModoVolume(spec))}
+        ${graficoLinhas(spec)}
         ${legendaVolume()}
       </section>
     </div>
@@ -807,7 +784,7 @@ function telaDispositivo() {
     </section>
     <div class="row">
       <section class="card card-20" style="flex:1 1 0">
-        ${cabecalho({ icone: iconeTrendingUp("dptop"), titulo: "Top Dispositivos", classeTitulo: "lh125", sub: DASH.subtitulos.topDispositivos })}
+        ${cabecalho({ icone: iconeTrendingUp("dptop"), titulo: "Dispositivo", classeTitulo: "lh125", sub: DASH.subtitulos.topDispositivos })}
         <div class="rows gap24">${linhasTop || vazio()}</div>
         ${paginacao("topDisp", top.atual, top.total)}
       </section>
@@ -818,7 +795,7 @@ function telaDispositivo() {
     </div>
     <div class="row">
       <section class="card card-20" style="flex:1 1 0">
-        ${cabecalho({ icone: iconeTrendingUp("dptipo"), titulo: "Tipo de dispositivo", classeTitulo: "lh125", sub: DASH.subtitulos.tipoDispositivo })}
+        ${cabecalho({ icone: iconeTrendingUp("dptipo"), titulo: "Tipo", classeTitulo: "lh125", sub: DASH.subtitulos.tipoDispositivo })}
         <div class="rows">${linhasTipos || vazio()}</div>
         ${paginacao("tipos", tipos.atual, tipos.total)}
       </section>
@@ -829,7 +806,7 @@ function telaDispositivo() {
       </section>
       <section class="card card-20" style="flex:1 1 0;justify-content:space-between">
         ${cabecalho({ icone: iconeTrendingUp("dptipo"), titulo: "Modelo", classeTitulo: "lh125", sub: DASH.subtitulos.modelo })}
-        <div class="rows" style="flex:1;justify-content:space-between;padding:16px 0">${linhasModelos || vazio()}</div>
+        <div class="rows" style="flex:1;justify-content:flex-start;padding:16px 0">${linhasModelos || vazio()}</div>
         ${paginacao("modelos", modelos.atual, modelos.total, true)}
       </section>
     </div>
@@ -1223,8 +1200,6 @@ function iniciar() {
     }
     const durBtn = e.target.closest("[data-dur]");
     if (durBtn) { estado.modoDuracao = durBtn.dataset.dur; estado.pag.duracao = 0; render(); return; }
-    const vol = e.target.closest("[data-vol]");
-    if (vol) { estado.modoVolume = vol.dataset.vol; render(); return; }
     const mx = e.target.closest("[data-mx]");
     if (mx) { estado.matrizRegiao = mx.dataset.mx; estado.pag.matrizRegiao = 0; render(); }
   });
