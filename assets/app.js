@@ -96,12 +96,12 @@ function linhaFalhas({ n, extra, f, pct, w, c, vermelho, sel, outros }, { w64 = 
       ${barra(c, w)}
     </div>`;
 }
-function linhaRegiao({ n, ativos, f, w, c, sel }) {
+function linhaRegiao({ n, f, pct, w, c, sel }) {
   return `
     <div class="brow slate${classeSel(sel)}"${attrSel(sel)}>
       <div class="brow-top">
-        <div class="brow-name lh125"><span class="nm">${n}</span><span class="tag b12">• ${ativos} Ativos</span></div>
-        <span class="brow-val"><span class="n">${f} </span><span class="u">falhas</span></span>
+        <div class="brow-name lh125"><span class="nm">${n}</span></div>
+        ${valFalhasPct(f, pct)}
       </div>
       ${barra(c, w)}
     </div>`;
@@ -419,8 +419,8 @@ function telaRegiao() {
   const subPag = pagina(r.subareas, "subareas");
   const corPag = pagina(r.corredores, "corredores");
   const maxSub = r.subareas[0] ? r.subareas[0].f : 0, maxCor = r.corredores[0] ? r.corredores[0].f : 0;
-  const linhasSub = subPag.itens.map((x) => linhaRegiao({ ...x, w: larguraBarra(x.f, maxSub), c: corPorValor(x.f, maxSub), sel: { campo: "subareas", val: x.n } })).join("");
-  const linhasCor = corPag.itens.map((x) => linhaRegiao({ ...x, w: larguraBarra(x.f, maxCor), c: corPorValor(x.f, maxCor), sel: { campo: "corredores", val: x.n } })).join("");
+  const linhasSub = subPag.itens.map((x) => linhaRegiao({ ...x, pct: pctDe(x.f, r.subareas), w: larguraBarra(x.f, maxSub), c: corPorValor(x.f, maxSub), sel: { campo: "subareas", val: x.n } })).join("");
+  const linhasCor = corPag.itens.map((x) => linhaRegiao({ ...x, pct: pctDe(x.f, r.corredores), w: larguraBarra(x.f, maxCor), c: corPorValor(x.f, maxCor), sel: { campo: "corredores", val: x.n } })).join("");
   const cartaoLista = (icone, titulo, sub, linhas, chave, pag) => `
       <section class="card card-20" style="flex:1 1 0">
         ${cabecalho({ icone, titulo, sub, classeTitulo: "lh125" })}
