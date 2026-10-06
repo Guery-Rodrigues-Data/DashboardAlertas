@@ -122,6 +122,13 @@ const MODELO = (() => {
       d.lat = sa.lat + gauss() * sa.raio;
       d.lng = sa.lng + gauss() * sa.raio * 1.2;
     });
+    // cruzamento (INVENTADO: corredor x transversal), semente própria; no cadastro real o nome vem do croqui/cadastro
+    const TRANSVERSAIS = ["Rua Mateus Leme", "Rua Padre Anchieta", "Av. Água Verde", "Rua Brigadeiro Franco", "Rua Comendador Araújo", "Av. Batel", "Rua Pasteur", "Av. Paraná", "Rua Buenos Aires", "Rua Bom Jesus", "Rua Nunes Machado", "Av. Cândido de Abreu"];
+    const rndC = mulberry32(424242);
+    lista.forEach((d) => {
+      const tr = TRANSVERSAIS.filter((x) => x !== d.corredor);
+      d.cruzamento = `${d.corredor} x ${tr[Math.floor(rndC() * tr.length)]}`;
+    });
     // peso de falha por dispositivo: poucos concentram a maioria das falhas (cauda longa)
     const ordem = lista.map((_, i) => i).sort(() => rnd() - 0.5);
     ordem.forEach((di, rank) => { lista[di].peso = rank < 70 ? 1 / Math.pow(rank + 3, 1.05) : 0.0004; });
@@ -258,16 +265,23 @@ const MODELO = (() => {
     const fabricantes = comPct(ordenar(contar(evFab, (e) => parque[e.dev].fab)).map(([n, f]) => ({ n, f })), evFab.length);
     const modelos = comPct(ordenar(contar(evModelo, (e) => parque[e.dev].modelo)).map(([n, f]) => ({ n, fab: modeloDe(n), f })), evModelo.length);
     const faixas = FAIXAS.map((f, i) => ({ ...f, v: evFaixa.filter((e) => parque[e.dev].faixa === i).length }));
-    const topDispositivos = comPct(ordenar(contar(evDev, (e) => e.dev)).map(([di, f]) => ({ n: parque[di].id, tipo: parque[di].tipo, f })), evDev.length);
+    const topDispositivos = comPct(ordenar(contar(evDev, (e) => e.dev)).map(([di, f]) => ({ n: parque[di].id, tipo: parque[di].tipo, cruz: parque[di].cruzamento, f })), evDev.length);
 
     // aba Alarme — pizza de criticidade (ignora a própria seleção) e listas de alarmes (idem)
     const evCrit = evSem(["crits"]), evAl = evSem(["alarmes"]);
     const criticidades = CRITICIDADES.map((c) => ({ n: c, v: evCrit.filter((e) => e.crit === c).length }));
     const alarmesLista = comPct(ordenar(contar(evAl, (e) => e.alarme)).map(([ai, f]) => ({ n: ALARMES[ai].n, f })), evAl.length);
     const durPorAl = new Map();
-    evAl.forEach((e) => { const d = durPorAl.get(e.alarme) || { soma: 0, f: 0 }; d.soma += e.dur; d.f++; durPorAl.set(e.alarme, d); });
-    const duracaoPorAlarme = [...durPorAl.entries()].map(([ai, d]) => ({ n: ALARMES[ai].n, v: d.soma / d.f, f: d.f }))
+    evAl.forEach((e) => { const d = durPorAl.get(e.alarme) || { soma: 0, f: 0, max: 0 }; d.soma += e.dur; d.f++; if (e.dur > d.max) d.max = e.dur; durPorAl.set(e.alarme, d); });
+    const duracaoPorAlarme = [...durPorAl.entries()].map(([ai, d]) => ({ n: ALARMES[ai].n, v: d.soma / d.f, max: d.max, f: d.f }))
       .sort((a, b) => b.v - a.v || a.n.localeCompare(b.n, "pt-BR"));
+    // dispositivos por alarme (hover da lista "Ocorrências por Alarme"): ignora o alarme selecionado, então vale para todas as linhas
+    const dpa = new Map();
+    evAl.forEach((e) => { const al = ALARMES[e.alarme].n; const m = dpa.get(al) || new Map(); m.set(e.dev, (m.get(e.dev) || 0) + 1); dpa.set(al, m); });
+    const dispositivosPorAlarme = Object.fromEntries([...dpa.entries()].map(([al, m]) => {
+      const lista = [...m.entries()].map(([di, f]) => ({ n: parque[di].id, tipo: parque[di].tipo, f })).sort((x, y) => y.f - x.f || x.n.localeCompare(y.n));
+      return [al, { total: lista.length, top: lista.slice(0, 5) }];
+    }));
     const durMedia = total ? ev.reduce((a, e) => a + e.dur, 0) / total : 0;
     const pctLongos = total ? Math.round((ev.filter((e) => e.dur > 240).length / total) * 100) : 0;
     const tiposDeAlarme = new Set(ev.map((e) => e.alarme)).size;
@@ -287,7 +301,7 @@ const MODELO = (() => {
     // linha fecha: células + "Outros alarmes" = Total. O mapa de calor (d/m/l) usa o maior valor de TODAS as
     // linhas, para a cor ser comparável entre páginas. É "seletora" da própria dimensão e de alarme (a tela
     // ignora essas duas seleções ao montar `evM`).
-    function montarMatrizPor(evM, chave) {
+    function montarMatrizPor(evM, chave, comDisp = false) {
       const totalM = evM.length;
       const porLinha = ordenar(contar(evM, chave));
       const porAlarmeM = ordenar(contar(evM, (e) => e.alarme));
@@ -295,6 +309,14 @@ const MODELO = (() => {
       const colunasAl = porAlarmeM.slice(0, 7).map(([ai]) => ai);
       const cont = new Map();
       evM.forEach((e) => { const k = `${chave(e)}|${e.alarme}`; cont.set(k, (cont.get(k) || 0) + 1); });
+      // por célula (linha x alarme) e por linha (total): quais dispositivos deram aquelas falhas; só nas matrizes de região (hover + clique levam à aba Dispositivo)
+      const devCont = new Map();
+      if (comDisp) evM.forEach((e) => { for (const k of [`${chave(e)}|${e.alarme}`, `${chave(e)}|*`]) { const m = devCont.get(k) || new Map(); m.set(e.dev, (m.get(e.dev) || 0) + 1); devCont.set(k, m); } });
+      const dispDe = (k, titulo) => {
+        const m = devCont.get(k); if (!m) return undefined;
+        const lista = [...m.entries()].map(([di, f]) => ({ n: parque[di].id, tipo: parque[di].tipo, f })).sort((a, b) => b.f - a.f || a.n.localeCompare(b.n));
+        return { titulo, total: lista.length, top: lista.slice(0, 5) };
+      };
       const nucleo = porLinha.map(([nome, tot]) => ({ nome, tot, cels: colunasAl.map((ai) => cont.get(`${nome}|${ai}`) || 0) }));
       const maxCel = Math.max(0, ...nucleo.flatMap((l) => l.cels));
       const tom = (v) => (maxCel && v >= 0.66 * maxCel ? "d" : maxCel && v >= 0.33 * maxCel ? "m" : "l");
@@ -307,16 +329,16 @@ const MODELO = (() => {
         .filter((x) => !naColuna.has(x.ai) && x.v > 0).sort((a, b) => b.v - a.v || a.n.localeCompare(b.n, "pt-BR")).map(({ n, v }) => ({ n, v }));
       const colunas = [...colunasAl.map((ai) => ({ t: ALARMES[ai].n })), ...(temOutrosAl ? [{ t: "Outros alarmes", outros: { titulo: "Outros alarmes no período", itens: outrosGeral } }] : []), { t: "Total" }];
       const linhas = nucleo.map((l) => {
-        const cels = l.cels.map((v) => [v, tom(v)]);
+        const cels = l.cels.map((v, j) => [v, tom(v), undefined, comDisp ? dispDe(`${l.nome}|${colunasAl[j]}`, "Dispositivos") : undefined]);
         if (temOutrosAl) cels.push([l.tot - l.cels.reduce((a, b) => a + b, 0), "n", { titulo: `Outros alarmes · ${l.nome}`, itens: outrosDaLinha(l.nome) }]);
-        cels.push([l.tot, "n"]);
+        cels.push([l.tot, "n", undefined, comDisp ? dispDe(`${l.nome}|*`, "Dispositivos") : undefined]);
         return [l.nome, cels];
       });
       return { colunas, linhas };
     }
     const matrizDisp = montarMatrizPor(evSem(["dispositivos", "alarmes"]), (e) => parque[e.dev].id);
-    const matrizSub = montarMatrizPor(evSem(["subareas", "alarmes"]), (e) => subDe(parque[e.dev]));
-    const matrizCor = montarMatrizPor(evSem(["corredores", "alarmes"]), (e) => corDe(parque[e.dev]));
+    const matrizSub = montarMatrizPor(evSem(["subareas", "alarmes"]), (e) => subDe(parque[e.dev]), true);
+    const matrizCor = montarMatrizPor(evSem(["corredores", "alarmes"]), (e) => corDe(parque[e.dev]), true);
 
     // aba Região: listas "seletoras" (ignoram a própria seleção), resultados (todas as seleções) e pontos do mapa
     const evSub = evSem(["subareas"]), evCor = evSem(["corredores"]);
@@ -345,7 +367,7 @@ const MODELO = (() => {
       faixasEv,     // contagem por faixa com todas as seleções (para a variação do cartão)
       serie: { porHora, rotulos, rotulosTip, valores, maxValor, eixoMax: maximoDoEixo(maxValor), totais, eixoMaxTotal: maximoDoEixo(Math.max(0, ...totais)), dispositivos: dispositivosPorPonto, alarmes: alarmesPorPonto },
       topDispositivos, tipos, fabricantes, modelos,
-      criticidades, alarmesLista, duracaoPorAlarme, durMedia, pctLongos, tiposDeAlarme,
+      criticidades, alarmesLista, dispositivosPorAlarme, duracaoPorAlarme, durMedia, pctLongos, tiposDeAlarme,
       matriz: matrizDisp, matrizSubareas: matrizSub, matrizCorredores: matrizCor,
       subareas, corredores, subareasEv, corredoresEv, mapa,
     };

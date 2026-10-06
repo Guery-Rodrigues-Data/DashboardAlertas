@@ -17,7 +17,7 @@ const ROTAS = [
 const estado = {
   pag: { subareas: 0, corredores: 0, topDisp: 0, tipos: 0, fabricantes: 0, modelos: 0, matriz: 0, topAlarmes: 0, duracao: 0, matrizRegiao: 0 },
   selecao: MODELO.selecaoVazia(), // cliques na tela (aba Dispositivo): tipo, fabricante, modelo, faixa, dispositivo, alarme
-  modoDuracao: "media", // cartão de duração dos alarmes: "media" (por ocorrência) ou "total" (tempo total em alarme)
+  modoDuracao: "media", // cartão de duração dos alarmes: "media" (por ocorrência) ou "max" (a maior ocorrência de cada alarme)
   totalPag: {}, // nº de páginas das listas dinâmicas (preenchido ao desenhar a tela)
   matrizRegiao: "subarea",
 };
@@ -86,12 +86,12 @@ function paginacao(chave, atual, total, w600 = false) {
 }
 
 /* Linhas de barra em três formatos que o Figma usa. */
-function linhaFalhas({ n, extra, f, w, c, vermelho, sel }, { w64 = true, gap = 8 } = {}) {
+function linhaFalhas({ n, extra, f, pct, w, c, vermelho, sel, outros }, { w64 = true, gap = 8 } = {}) {
   return `
-    <div class="brow slate${classeSel(sel)}"${attrSel(sel)}>
+    <div class="brow slate${classeSel(sel)}"${attrSel(sel)}${outros ? attrOutros(outros) : ""}>
       <div class="brow-top">
         <div class="brow-name" style="gap:${gap}px"><span>${n}</span>${extra ? `<span class="tag">${extra}</span>` : ""}</div>
-        <span class="brow-val ${w64 ? "w64" : ""}"><span class="n">${f} </span><span class="u">falhas</span></span>
+        ${pct ? valFalhasPct(f, pct) : `<span class="brow-val ${w64 ? "w64" : ""}"><span class="n">${f} </span><span class="u">falhas</span></span>`}
       </div>
       ${barra(c, w)}
     </div>`;
@@ -114,32 +114,44 @@ function classeSel(sel) {
   return atual.length ? (atual.includes(sel.val) ? " sel-on" : " sel-off") : "";
 }
 
-function linhaDispositivo({ n, tipo, f, w, c, gap10, sel }) {
+/* Valor padrão das listas da aba Dispositivo: falhas em destaque + % em cinza (colunas fixas, alinham entre as linhas).
+   A % é sobre as falhas da PRÓPRIA lista (cada lista ignora a seleção da sua dimensão), com 1 casa decimal. */
+const pctDe = (f, lista) => { const base = lista.reduce((a, x) => a + x.f, 0); return `${fmtDec(base ? (f / base) * 100 : 0)}%`; };
+const valFalhasPct = (f, pct) => `<span class="brow-val brow-val-pct" title="${f} falhas (${pct})"><span class="vp-f"><span class="n">${f}</span></span><span class="vp-p">(${pct})</span></span>`;
+
+/* Link "ver no mapa": abre o Cockpit já filtrado no dispositivo (?dispositivo=ID). O Cockpit AINDA NÃO lê esse parâmetro;
+   a URL publicada do Cockpit ainda não existe aqui. */
+// Local: o Cockpit roda em outra porta (_serve.ps1 do cockpit-prototipo = 8746). Publicado: trocar pela URL real do Cockpit.
+const URL_COCKPIT = location.hostname === "localhost" ? "http://localhost:8746/" : "../cockpit-prototipo/index.html";
+const iconeMapa = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>`;
+
+function linhaDispositivo({ n, tipo, cruz, f, pct, w, c, gap10, sel }) {
   return `
     <div class="brow escuro${classeSel(sel)}"${attrSel(sel)}>
       <div class="brow-top">
-        <div class="brow-name" style="gap:${gap10 ? 10 : 8}px"><span>${n}</span><span class="tag"><span style="font-weight:400">• </span>${tipo}</span></div>
-        <span class="brow-val w64"><span class="n">${f} </span><span class="u">falhas</span></span>
+        <a class="btn-mapa" data-mapa href="${URL_COCKPIT}?dispositivo=${encodeURIComponent(n)}" target="_blank" rel="noopener" title="Ver ${n} no mapa do Cockpit" aria-label="Ver ${n} no mapa do Cockpit">${iconeMapa}</a>
+        <div class="brow-name" style="gap:${gap10 ? 10 : 8}px"><span>${n}</span><span class="tag"><span style="font-weight:400">• </span>${tipo}</span>${cruz ? `<span class="tag cruz"><span style="font-weight:400">• </span>${cruz}</span>` : ""}</div>
+        ${valFalhasPct(f, pct)}
       </div>
       ${barra(c, w)}
     </div>`;
 }
-function linhaPercentual({ n, t, w, c, gap10, sel }, { w64 = false } = {}) {
+function linhaPercentual({ n, f, pct, w, c, gap10, sel }) {
   return `
     <div class="brow${classeSel(sel)}"${attrSel(sel)}>
       <div class="brow-top">
         <div class="brow-name lh125" style="gap:${gap10 ? 10 : 8}px"><span class="nm">${n}</span></div>
-        <span class="brow-val brow-pct ${w64 ? "w64" : ""}">${t}</span>
+        ${valFalhasPct(f, pct)}
       </div>
       ${barra(c, w)}
     </div>`;
 }
-function linhaModelo({ n, fab, f, w, c, sel }) {
+function linhaModelo({ n, fab, f, pct, w, c, sel }) {
   return `
     <div class="brow${classeSel(sel)}"${attrSel(sel)}>
       <div class="brow-top">
         <div class="brow-name lh125"><span class="nm">${n}</span><span class="tag b12">• ${fab}</span></div>
-        <span class="brow-val"><span class="n">${f} </span><span class="u">falhas</span></span>
+        ${valFalhasPct(f, pct)}
       </div>
       ${barra(c, w)}
     </div>`;
@@ -224,18 +236,28 @@ function htmlListaTip(lista, rot = ROTULO_LISTA_DISP) {
 }
 
 // Caixa flutuante (position: fixed, não é cortada pela matriz) com a lista de alarmes dentro de "Outros alarmes".
-function mostrarOutros(alvo) {
+function mostrarOutros(alvo, ptr) {
   let box = document.getElementById("tipFlutuante");
   if (!box) { box = document.createElement("div"); box.id = "tipFlutuante"; box.className = "chart-tip flutuante"; document.body.appendChild(box); }
+  if (!box.hidden && box._alvo === alvo) return; // mouseover dispara de novo ao passar por filhos do mesmo elemento: não reposiciona
   const { titulo, itens } = JSON.parse(alvo.dataset.outros);
-  box.innerHTML = `<strong>${titulo}</strong><div class="tip-sep"></div>${itens.map((i) => `<div class="tip-row"><span>${i.n}</span><b>${i.v}</b></div>`).join("") || '<div class="tip-vazio">Nenhum</div>'}`;
+  const linha = (i) => i.ver
+    ? `<button type="button" class="tip-ver" data-tipver="${JSON.stringify(i.ver).replace(/&/g, "&amp;").replace(/"/g, "&quot;")}">${i.n} <span aria-hidden="true">→</span></button>`
+    : `<div class="tip-row"><span>${i.n}</span><b>${i.v}</b></div>`;
+  box.innerHTML = `${titulo ? `<strong>${titulo}</strong><div class="tip-sep"></div>` : ""}${itens.map(linha).join("") || '<div class="tip-vazio">Nenhum</div>'}`;
+  box.classList.toggle("interativo", itens.some((i) => i.ver));
+  box._alvo = alvo;
   box.hidden = false;
-  box.style.left = "0px"; box.style.top = "0px";
-  const r = alvo.getBoundingClientRect(), w = box.offsetWidth, h = box.offsetHeight;
-  box.style.left = `${Math.min(Math.max(8, r.left + r.width / 2 - w / 2), innerWidth - w - 8)}px`;
-  box.style.top = `${r.top - h - 8 >= 8 ? r.top - h - 8 : r.bottom + 8}px`;
+  posicionarOutros(box, ptr);
 }
-function esconderOutros() { const box = document.getElementById("tipFlutuante"); if (box) box.hidden = true; }
+// Sempre logo abaixo do ponteiro, no ponto onde ele entrou (não segue o mouse, para dar para clicar no link). Só vai para cima se faltar espaço.
+function posicionarOutros(box, ptr) {
+  box.style.left = "0px"; box.style.top = "0px";
+  const w = box.offsetWidth, h = box.offsetHeight;
+  box.style.left = `${Math.min(Math.max(8, ptr.clientX - 16), innerWidth - w - 8)}px`;
+  box.style.top = `${ptr.clientY + 4 + h <= innerHeight - 8 ? ptr.clientY + 4 : Math.max(8, ptr.clientY - h - 4)}px`;
+}
+function esconderOutros() { const box = document.getElementById("tipFlutuante"); if (box) { box.hidden = true; box._alvo = null; } }
 
 // Move linha vertical, pontos e (opcional) a caixa de valores para o ponto `i`.
 function posicionarGrafico(canvas, i, comTip) {
@@ -275,13 +297,13 @@ const COR_TOTAL = "#404041"; // série única do gráfico de falhas (aba Disposi
 
 const chaveLegenda = (cor, n) => `<div class="chart-key"><span class="dot8" style="background:${cor}"></span><span>${n}</span></div>`;
 
-// alternância "Média | Total" do cartão de duração
+// alternância "Média | Máx" do cartão de duração
 function toggleDuracao() {
-  const total = estado.modoDuracao === "total";
+  const max = estado.modoDuracao === "max";
   return `
     <div class="mx-seg small" role="tablist" aria-label="Mostrar a duração como">
-      <button type="button" role="tab" data-dur="media" class="${total ? "" : "is-on"}">Média</button>
-      <button type="button" role="tab" data-dur="total" class="${total ? "is-on" : ""}">Total</button>
+      <button type="button" role="tab" data-dur="media" title="Tempo médio que cada ocorrência do alarme fica ativa" class="${max ? "" : "is-on"}">Média</button>
+      <button type="button" role="tab" data-dur="max" title="Duração da ocorrência mais longa de cada alarme no período (não é a soma)" class="${max ? "is-on" : ""}">Maior</button>
     </div>`;
 }
 
@@ -312,6 +334,14 @@ function ordenarColunasDaPagina(colunas, linhas) {
 }
 
 // Conteúdo da caixa flutuante ("Outros alarmes") vai num atributo data-outros (JSON escapado).
+const attrIr = (patch) => ` data-ir="${JSON.stringify(patch).replace(/&/g, "&amp;").replace(/"/g, "&quot;")}"`;
+// Abre a aba Dispositivo só com o recorte pedido (limpa a seleção anterior: o que vale é exatamente o que foi clicado).
+function irParaDispositivo(patch) {
+  estado.selecao = { ...MODELO.selecaoVazia(), ...patch };
+  Object.keys(estado.pag).forEach((k) => { estado.pag[k] = 0; });
+  esconderOutros();
+  location.hash = "#/dispositivo";
+}
 const attrOutros = (extra) => ` data-outros="${JSON.stringify(extra).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;")}"`;
 
 function matriz(titulo, descricao, colunas, linhas, { seletor = "", rodape = "", selLinhas = null } = {}) {
@@ -319,7 +349,17 @@ function matriz(titulo, descricao, colunas, linhas, { seletor = "", rodape = "",
   const corpo = linhas.map(([nome, celulas]) => `
       <div class="mx-line body${selLinhas ? classeSel({ campo: selLinhas, val: nome }).replace("sel-on", "sel-on-linha") : ""}">
         <div class="mx-cell row-name"${selLinhas ? attrSel({ campo: selLinhas, val: nome }) : ""}>${nome}</div>
-        ${celulas.map(([v, tom, extra]) => `<div class="mx-cell ${tom}${v === 0 ? " zero" : ""}${extra && v > 0 ? " tem-outros" : ""}"${extra && v > 0 ? attrOutros(extra) : ""}>${v === 0 ? "–" : v}</div>`).join("")}
+        ${celulas.map(([v, tom, extra, disp], j) => {
+          if (disp && v > 0 && selLinhas) {
+            // hover: dispositivos daquela célula; clique (ou o link do hover): aba Dispositivo filtrada por essa região (+ alarme da coluna)
+            const patch = { [selLinhas]: [nome] }; if (colunas[j] && colunas[j].t !== "Total") patch.alarmes = [colunas[j].t];
+            const mais = disp.total - disp.top.length;
+            const itens = disp.top.map((x) => ({ n: `${x.n} • ${x.tipo}`, v: x.f }));
+            if (mais > 0) itens.push({ ver: patch, n: `+ ${mais} ${mais === 1 ? "dispositivo" : "dispositivos"}` }); // sem "+N" (lista completa): o clique na célula continua levando à aba Dispositivo
+            return `<div class="mx-cell ${tom} tem-outros vai-disp"${attrOutros({ titulo: disp.titulo, itens })}${attrIr(patch)}>${v}</div>`;
+          }
+          return `<div class="mx-cell ${tom}${v === 0 ? " zero" : ""}${extra && v > 0 ? " tem-outros" : ""}"${extra && v > 0 ? attrOutros(extra) : ""}>${v === 0 ? "–" : v}</div>`;
+        }).join("")}
       </div>`).join("");
   return `
     <section class="card">
@@ -363,14 +403,10 @@ function telaRegiao() {
   const subAnt = ant && topSub ? (ant.subareasEv.find((x) => x.n === topSub.n) || { f: 0 }).f : null;
   const corAnt = ant && topCor ? (ant.corredoresEv.find((x) => x.n === topCor.n) || { f: 0 }).f : null;
   const nSub = r.subareasEv.length;
-  const pctTop3 = r.total ? Math.round((r.subareasEv.slice(0, 3).reduce((t, x) => t + x.f, 0) / r.total) * 100) : 0;
   const kpis = [
     kpiCard({ titulo: "Total de Alarmes", icone: iconeBox("reg", "f5917.svg"),
       numeros: kpiNumeros(fmtInt(r.total), trendVar(variacao(r.total, ant && ant.total)), "nolt"),
       sub: `Falhas em ${nSub} ${nSub === 1 ? "sub área" : "sub áreas diferentes"}` }),
-    kpiCard({ titulo: "Concentração de Falhas", icone: iconeCheio("reg", "6158d.svg"),
-      numeros: kpiNumeros(r.total ? `${pctTop3}%` : "—", "", "nolt"),
-      sub: nSub ? `das falhas do período estão nas ${Math.min(3, nSub)} sub áreas mais críticas` : "Sem falhas no período" }),
     kpiCard({ titulo: "Sub Área mais crítica", icone: iconeCheio("reg", "6158d.svg"),
       numeros: kpiNomeRegiao(topSub && topSub.n, topSub ? trendVar(variacao(topSub.f, subAnt)) : ""),
       sub: topSub ? `${topSub.f} ${topSub.f === 1 ? "falha" : "falhas"} (${Math.round((topSub.f / r.total) * 100)}% do total do período)` : "Sem falhas no período" }),
@@ -407,7 +443,7 @@ function telaRegiao() {
   return `
     ${htmlChipsSelecao()}
     <div class="row">${kpis}</div>
-    <div class="row">
+    <div class="row row-reg">
       <div class="reg-col">
         ${cartaoLista(icone20("reg", "155e2.svg"), "Falhas por Sub Área", DASH.subtitulos.porSubarea, linhasSub, "subareas", subPag)}
         ${cartaoLista(icone20("reg", "02fb0.svg"), "Falhas por Corredor", DASH.subtitulos.porCorredor, linhasCor, "corredores", corPag)}
@@ -556,24 +592,33 @@ function telaAlarme() {
 
   /* --- pizza de criticidade (clicável) e legenda --- */
   const fatias = r.criticidades.map((c) => ({ id: c.n, v: c.v, cor: COR_CRIT[c.n] }));
+  const totCrit = r.criticidades.reduce((a, c) => a + c.v, 0);
   const legenda = r.criticidades.map((c) => `
-    <div class="legend-item${classeSel({ campo: "crits", val: c.n })}" data-sel="crits" data-val="${c.n}"><span class="dot6" style="background:${COR_CRIT[c.n]}"></span><div class="lt"><span style="color:${COR_CRIT[c.n]}">${c.n}</span><b>${c.v}</b></div></div>`).join("");
+    <div class="legend-item${classeSel({ campo: "crits", val: c.n })}" data-sel="crits" data-val="${c.n}"><span class="dot6" style="background:${COR_CRIT[c.n]}"></span><div class="lt"><span style="color:${COR_CRIT[c.n]}">${c.n}</span><b>${c.v} (${totCrit ? fmtDec((c.v / totCrit) * 100) : "0,0"}%)</b></div></div>`).join("");
 
   /* --- gráfico de volume: spec do período (o hover mostra só a criticidade) --- */
   const spec = { eixoMax: r.serie.eixoMax, casas: 0, rotulos: r.serie.rotulos, rotulosTip: r.serie.rotulosTip, valores: r.serie.valores };
 
   /* --- listas completas (todos os tipos de alarme, sem paginação) --- */
   const maxTop = r.alarmesLista[0] ? r.alarmesLista[0].f : 0;
-  // Média = quanto cada ocorrência demora; Total = média x ocorrências = onde o tempo foi gasto (mistura frequência e duração)
-  const totalDur = estado.modoDuracao === "total";
+  // Média = quanto cada ocorrência demora em média; Máx = a ocorrência mais longa daquele alarme no período (não é soma)
+  const totalDur = estado.modoDuracao === "max";
   const listaDur = totalDur
-    ? r.duracaoPorAlarme.map((a) => ({ ...a, v: a.v * a.f })).sort((a, b) => b.v - a.v || a.n.localeCompare(b.n, "pt-BR"))
+    ? r.duracaoPorAlarme.map((a) => ({ ...a, v: a.max })).sort((a, b) => b.v - a.v || a.n.localeCompare(b.n, "pt-BR"))
     : r.duracaoPorAlarme;
   const maxDur = listaDur[0] ? listaDur[0].v : 0;
   // 10 por página: hoje cabem todos os tipos ("Pág 1 / 1"); se o catálogo crescer (o do backend tem ~30), pagina sozinho
   const top = pagina(r.alarmesLista, "topAlarmes");
   const dur = pagina(listaDur, "duracao");
-  const linhasTop = top.itens.map((a) => linhaFalhas({ n: a.n, f: a.f, w: larguraBarra(a.f, maxTop), c: corPorValor(a.f, maxTop), sel: { campo: "alarmes", val: a.n } })).join("");
+  // hover da linha: os 5 dispositivos que mais deram aquele alarme (ignora o alarme selecionado, então vale para todas as linhas)
+  const dispositivosDoAlarme = (nome) => {
+    const d = r.dispositivosPorAlarme && r.dispositivosPorAlarme[nome];
+    if (!d) return { titulo: "Dispositivos", itens: [] };
+    const itens = d.top.map((x) => ({ n: `${x.n} • ${x.tipo}`, v: x.f }));
+    if (d.total > d.top.length) itens.push({ ver: { alarmes: [nome] }, n: `+ ${d.total - d.top.length} ${d.total - d.top.length === 1 ? "dispositivo" : "dispositivos"}` });
+    return { titulo: "Dispositivos", itens };
+  };
+  const linhasTop = top.itens.map((a) => linhaFalhas({ n: a.n, f: a.f, pct: pctDe(a.f, r.alarmesLista), outros: dispositivosDoAlarme(a.n), w: larguraBarra(a.f, maxTop), c: corPorValor(a.f, maxTop), sel: { campo: "alarmes", val: a.n } })).join("");
   const linhasDur = dur.itens.map((a) => { const t = partesDuracao(a.v); return linhaDuracao({ n: a.n, v: t.v, u: t.u, w: larguraBarra(a.v, maxDur), c: corPorValor(a.v, maxDur), sel: { campo: "alarmes", val: a.n }, auto: true }); }).join("");
 
   return `
@@ -603,7 +648,7 @@ function telaAlarme() {
       </section>
       <section class="card card-20" style="flex:1 1 0">
         <div class="head-row">
-          ${cabecalho({ icone: icone20("aldur", "77437.svg"), titulo: "Duração por Alarme", sub: totalDur ? DASH.subtitulos.duracaoTotal : DASH.subtitulos.duracao })}
+          ${cabecalho({ icone: icone20("aldur", "77437.svg"), titulo: totalDur ? "Maior Duração por Alarme" : "Duração Média por Alarme", sub: totalDur ? DASH.subtitulos.duracaoMax : DASH.subtitulos.duracao })}
           ${toggleDuracao()}
         </div>
         <div class="rows">${linhasDur || vazio("Sem alarmes no período selecionado.")}</div>
@@ -635,8 +680,10 @@ function rotuloPeriodoAnterior() {
   return { dias, intervalo: `${fmtData(ini)} a ${fmtData(fim)}`, curto: dias === 1 ? "vs. dia anterior" : `vs. ${dias} dias anteriores` };
 }
 
+// Tag de variação dos cartões do topo ("24,2% vs. 30 dias anteriores"). Desligada a pedido; trocar para true volta em todas as abas.
+const MOSTRAR_VARIACAO = false;
 function trendVar(pct) {
-  if (pct == null) return "";
+  if (!MOSTRAR_VARIACAO || pct == null) return "";
   const sobe = pct >= 0;
   const ant = rotuloPeriodoAnterior();
   const dica = `Variação em relação aos ${ant.dias} dias anteriores, de mesmo tamanho que o período selecionado (${ant.intervalo})`;
@@ -736,9 +783,6 @@ function telaDispositivo() {
       numeros: kpiNumeros(fmtInt(r.dispositivos), trendVar(variacao(r.dispositivos, ant && ant.dispositivos))), sub: `${fmtDec((r.dispositivos / r.parque) * 100)}% do parque afetado` }),
     kpiCard({ titulo: "Média Diária", icone: iconeCheio("dpkpi", "811c0.svg"),
       numeros: kpiNumeros(fmtDec(r.mediaDiaria), trendVar(variacao(r.mediaDiaria, ant && ant.mediaDiaria))), sub: "Dispositivos com erro/dia" }),
-    kpiCard({ titulo: "Alarmes de Maior Ocorrência", icone: iconeInset("dpkpi", "617ff.svg", 16.004, 16.097, "-4.06% -4.69% -4.66% -4.66%"),
-      numeros: `<div class="kpi-body h23" style="gap:8px"><span class="kpi-body-text">${r.topAlarme ? fmtInt(r.topAlarme.v) : "0"}</span>${r.topAlarme ? trendVar(variacao(r.topAlarme.v, alarmeAnt)) : ""}</div>`,
-      sub: r.topAlarme ? r.topAlarme.n : "Sem falhas no período" }),
     kpiCard({ titulo: "Faixa de Idade Crítica", icone: iconeInset("dpkpi", "cd44e.svg", 16.063, 16.063, "-4.28% -4.67% -4.67% -4.28%", true),
       numeros: `<div class="kpi-body"><span class="kpi-big black uma-cor">${r.topFaixa ? rotuloFaixaKpi(r.topFaixa.rotulo) : "—"}</span>${r.topFaixa ? trendVar(variacao(r.topFaixa.v, faixaAnt)) : ""}</div>`,
       sub: r.topFaixa ? `${Math.round((r.topFaixa.v / r.total) * 100)}% dos erros no período` : "Sem falhas no período" }),
@@ -757,13 +801,13 @@ function telaDispositivo() {
   const modelos = pagina(r.modelos, "modelos");
   const totFaixas = r.faixas.reduce((a, f) => a + f.v, 0);
   const pctFaixa = (v) => (totFaixas ? Math.round((v / totFaixas) * 100) : 0);
-  const linhasTop = top.itens.map((d) => linhaDispositivo({ ...d, w: larguraBarra(d.f, maxTop), c: corPorValor(d.f, maxTop), sel: { campo: "dispositivos", val: d.n } })).join("");
-  const linhasTipos = tipos.itens.map((d) => linhaPercentual({ n: d.n, t: `${d.f} ~ ${d.pct}%`, w: larguraBarra(d.f, r.tipos[0].f), c: corPorValor(d.f, r.tipos[0].f), sel: { campo: "tipos", val: d.n } }, { w64: true })).join("");
-  const linhasFabs = fabs.itens.map((d) => linhaPercentual({ n: d.n, t: `${d.pct}%`, w: larguraBarra(d.f, r.fabricantes[0].f), c: corPorValor(d.f, r.fabricantes[0].f), sel: { campo: "fabricantes", val: d.n } })).join("");
-  const linhasModelos = modelos.itens.map((d) => linhaModelo({ ...d, w: larguraBarra(d.f, r.modelos[0].f), c: corPorValor(d.f, r.modelos[0].f), sel: { campo: "modelos", val: d.n } })).join("");
+  const linhasTop = top.itens.map((d) => linhaDispositivo({ ...d, pct: pctDe(d.f, r.topDispositivos), w: larguraBarra(d.f, maxTop), c: corPorValor(d.f, maxTop), sel: { campo: "dispositivos", val: d.n } })).join("");
+  const linhasTipos = tipos.itens.map((d) => linhaPercentual({ n: d.n, f: d.f, pct: pctDe(d.f, r.tipos), w: larguraBarra(d.f, r.tipos[0].f), c: corPorValor(d.f, r.tipos[0].f), sel: { campo: "tipos", val: d.n } })).join("");
+  const linhasFabs = fabs.itens.map((d) => linhaPercentual({ n: d.n, f: d.f, pct: pctDe(d.f, r.fabricantes), w: larguraBarra(d.f, r.fabricantes[0].f), c: corPorValor(d.f, r.fabricantes[0].f), sel: { campo: "fabricantes", val: d.n } })).join("");
+  const linhasModelos = modelos.itens.map((d) => linhaModelo({ ...d, pct: pctDe(d.f, r.modelos), w: larguraBarra(d.f, r.modelos[0].f), c: corPorValor(d.f, r.modelos[0].f), sel: { campo: "modelos", val: d.n } })).join("");
 
   const legenda = r.faixas.map((f) => `
-    <div class="legend-item g8${classeSel({ campo: "faixas", val: f.id })}" data-sel="faixas" data-val="${f.id}"><span class="dot10" style="background:${f.cor}"></span><div class="lt2"><span>${f.rotuloLegenda}</span> <b>${f.v} (${pctFaixa(f.v)}%)</b></div></div>`).join("");
+    <div class="legend-item g8${classeSel({ campo: "faixas", val: f.id })}" data-sel="faixas" data-val="${f.id}" title="${f.rotulo}: ${f.v} falhas (${pctFaixa(f.v)}%)"><span class="dot10" style="background:${f.cor}"></span><div class="lt2 lt2-col"><span>${f.rotulo.replace(" anos", "").replace(" a ", "–")}</span><b>(${pctFaixa(f.v)}%)</b></div></div>`).join("");
 
   const mx = r.matriz;
   const mxPag = pagina(mx.linhas, "matriz");
@@ -772,23 +816,14 @@ function telaDispositivo() {
   mxVis.colunas = mxVis.colunas.map((c) => (c.outros || c.t === "Total" ? c : { ...c, sel: { campo: "alarmes", val: c.t } }));
   return `
     ${htmlChipsSelecao()}
-    <div class="row">${kpis}</div>
-    <section class="card card-20" style="align-items:center">
-      <div class="head-row">
-        <div class="head">
-          <div class="head-title"><div class="ico20" style="padding:4px">${img("dpvol", "5f4b6.svg", 16, 16)}</div><span class="t lh125">Volume de Erros</span></div>
-          <div class="head-sub">${DASH.subtitulos.volumeErros}</div>
-        </div>
-      </div>
-      ${graficoLinhas(spec)}
-    </section>
-    <div class="row">
-      <section class="card card-20" style="flex:1 1 0">
+    <div class="row row-kpi-disp">${kpis}</div>
+    <div class="row row-disp">
+      <section class="card card-20">
         ${cabecalho({ icone: iconeTrendingUp("dptop"), titulo: "Dispositivo", classeTitulo: "lh125", sub: DASH.subtitulos.topDispositivos })}
         <div class="rows gap24">${linhasTop || vazio()}</div>
         ${paginacao("topDisp", top.atual, top.total)}
       </section>
-      <section class="card card-20 pie-card" style="flex:0 0 clamp(480px,32%,620px)">
+      <section class="card card-20 pie-card">
         ${cabecalho({ icone: icone20("dptop", "04c43.svg"), titulo: "Distribuição de falhas por faixa de idade", classeTitulo: "t16", sub: DASH.subtitulos.faixaIdade })}
         <div class="pie-body">${pizza(r.faixas)}<div class="legend auto">${legenda}</div></div>
       </section>
@@ -810,6 +845,15 @@ function telaDispositivo() {
         ${paginacao("modelos", modelos.atual, modelos.total, true)}
       </section>
     </div>
+    <section class="card card-20" style="align-items:center">
+      <div class="head-row">
+        <div class="head">
+          <div class="head-title"><div class="ico20" style="padding:4px">${img("dpvol", "5f4b6.svg", 16, 16)}</div><span class="t lh125">Volume de Erros</span></div>
+          <div class="head-sub">${DASH.subtitulos.volumeErros}</div>
+        </div>
+      </div>
+      ${graficoLinhas(spec)}
+    </section>
     ${mx.linhas.length ? matriz("Matriz de Correlação: Dispositivo vs. Alarme", "Dispositivos (linhas) do que mais falha para o que menos falha; alarmes (colunas) começando pelo que mais deu no primeiro dispositivo da página, só os que aparecem nela. Use a paginação para ver os demais", mxVis.colunas, mxVis.linhas, { rodape: paginacao("matriz", mxPag.atual, mxPag.total), selLinhas: "dispositivos" })
       : `<section class="card"><div class="head-title"><span class="t">Matriz de Correlação: Dispositivo vs. Alarme</span></div>${vazio()}</section>`}`;
 }
@@ -1305,6 +1349,10 @@ function iniciar() {
   window.addEventListener("hashchange", () => { fecharPopovers(); render(); window.scrollTo(0, 0); });
 
   document.addEventListener("click", (e) => {
+    const ver = e.target.closest && e.target.closest("[data-tipver]");
+    if (ver) { irParaDispositivo(JSON.parse(ver.dataset.tipver)); return; } // link do hover: abre a aba Dispositivo já filtrada
+    const celIr = e.target.closest && e.target.closest("[data-ir]");
+    if (celIr) { irParaDispositivo(JSON.parse(celIr.dataset.ir)); return; } // clique na célula da matriz de região: o mesmo
     // A verificação vem antes de qualquer re-render: re-renderizar solta o elemento clicado do DOM.
     const dentro = !!e.target.closest(".filter-wrap");
     if (!dentro) fecharPopovers();
@@ -1312,6 +1360,7 @@ function iniciar() {
     if (e.target.closest("#btnFiltros")) { abrirPopover("filtros"); return; }
     if (dentro && aoClicarPopover(e)) return;
 
+    if (e.target.closest("[data-mapa]")) return; // link para o Cockpit: deixa navegar, não seleciona a linha
     const s = e.target.closest("[data-sel]");
     if (s) { alternarSelecao(s.dataset.sel, s.dataset.val, e.ctrlKey || e.metaKey); return; }
     const chip = e.target.closest("[data-chip]");
@@ -1353,16 +1402,18 @@ function iniciar() {
     const dica = document.querySelector(`[data-lista="${campo}"] [data-dica]`);
     if (dica) dica.hidden = !!q;
   });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") fecharPopovers(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") { fecharPopovers(); } });
 
   // hover em "Outros alarmes" (cabeçalho ou célula): mostra quais alarmes são
   document.addEventListener("mouseover", (e) => {
     const a = e.target.closest && e.target.closest("[data-outros]");
-    if (a) mostrarOutros(a);
+    if (a) mostrarOutros(a, e);
   });
   document.addEventListener("mouseout", (e) => {
     const a = e.target.closest && e.target.closest("[data-outros]");
-    if (a && !(e.relatedTarget && a.contains(e.relatedTarget))) esconderOutros();
+    if (a && !(e.relatedTarget && (a.contains(e.relatedTarget) || (e.relatedTarget.closest && e.relatedTarget.closest("#tipFlutuante"))))) esconderOutros();
+    const t = e.target.closest && e.target.closest("#tipFlutuante.interativo");
+    if (t && !(e.relatedTarget && e.relatedTarget.closest && (e.relatedTarget.closest("#tipFlutuante") || e.relatedTarget.closest("[data-outros]")))) esconderOutros();
   });
   window.addEventListener("scroll", esconderOutros, { passive: true });
 

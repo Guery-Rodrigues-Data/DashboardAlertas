@@ -487,3 +487,118 @@ main { display: flex; flex-direction: column; gap: 16px; }
 .flt-tools .pop-link { margin-left: auto; }
 /* etiqueta discreta ao lado de Data e Filtros: sinaliza que esses dois controles ainda estão em revisão de UX */
 .tag-revisar { align-self: center; padding: 2px 8px; border-radius: 99px; background: var(--neutral-100); color: var(--text-disabled); font-weight: 600; font-size: 10px; line-height: 14px; letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; cursor: default; }
+
+/* Aba Dispositivo: o card "Dispositivo" ocupa a largura de 3 cartões do topo (termina no fim de "Média Diária") e a pizza a do 4º;
+   mesma grade de 4 colunas e mesmo gap dos KPIs, então as bordas batem. A pizza fica empilhada: gráfico em cima, legenda embaixo. */
+.row-disp { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.row-disp > :first-child { grid-column: span 3; }
+.row-disp .pie-body { flex-direction: column; gap: 24px; }
+.row-disp .legend.auto { width: 100%; align-items: stretch; }
+.row-disp .pie-card { overflow: hidden; }
+.row-disp .pie-card .head-title { align-items: flex-start; }
+.row-disp .pie-card .head-title .t { white-space: normal; }
+.row-disp .pie-card .head-sub { white-space: normal; line-height: 1.25; padding: 0; }
+.row-disp .pie-card { overflow: visible; justify-content: flex-start; }
+.row-disp .pie-body { flex: none; min-height: 0; }
+/* Pizza reduzida (zoom leva junto os % das fatias, que são posicionados em px) e legenda ao lado */
+.row-disp .pie-body { flex-direction: row; gap: 16px; }
+.row-disp .pie { zoom: 0.62; }
+.row-disp .legend.auto { flex: 1 1 0; width: auto; min-width: 0; gap: 8px; }
+.row-disp .legend-item.g8 { justify-content: flex-start; gap: 6px; }
+.row-disp .legend-item .lt2 { font-size: 13px; white-space: normal; }
+/* Revisão: pizza maior, legenda compacta em UMA linha embaixo (só faixa; contagem e % no tooltip e no hover da fatia) */
+.row-disp .pie-body { flex-direction: column; gap: 16px; }
+.row-disp .pie { zoom: 0.9; }
+.row-disp .legend.auto { flex: none; width: 100%; flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 4px 12px; }
+.row-disp .legend-item.g8 { justify-content: center; gap: 4px; padding: 4px 6px; }
+.row-disp .legend-item .lt2 { font-size: 13px; white-space: nowrap; }
+/* Revisão 2: legenda ao lado da pizza, itens em duas linhas (faixa / contagem e %) */
+.row-disp .pie-body { flex-direction: row; gap: 12px; }
+.row-disp .pie { zoom: 0.85; }
+.row-disp .legend.auto { flex: 1 1 0; width: auto; min-width: 0; flex-direction: column; flex-wrap: nowrap; justify-content: center; gap: 6px; }
+.row-disp .legend-item.g8 { justify-content: flex-start; gap: 6px; padding: 2px 6px; }
+.row-disp .lt2-col { display: flex; flex-direction: column; gap: 1px; font-size: 13px; line-height: 1.2; white-space: nowrap; }
+.row-disp .lt2-col b { font-size: 12px; font-weight: 700; }
+/* Revisão 3: pizza centralizada no card, legenda encostada à direita (grade 1fr | pizza | 1fr; a legenda ocupa a coluna da direita) */
+.row-disp .pie-body { display: grid; grid-template-columns: 1fr auto 1fr; gap: 0; align-items: center; justify-items: center; }
+.row-disp .pie { grid-column: 2; zoom: 0.72; }
+.row-disp .legend.auto { grid-column: 3; justify-self: end; width: auto; flex: none; margin-right: -12px; gap: 4px; }
+.row-disp .legend-item.g8 { padding: 2px 4px; gap: 5px; }
+.row-disp .lt2-col { font-size: 11px; }
+.row-disp .lt2-col b { font-size: 11px; }
+/* Revisão 4: pizza maior e centralizada, ocupando a altura do card; legenda à direita com margem, só a faixa (contagem e % no tooltip) */
+.row-disp .pie-body { flex: 1 1 auto; min-height: 190px; padding-right: 8px; }
+.row-disp .pie { zoom: 0.8; }
+.row-disp .legend.auto { margin-right: 0; gap: 8px; }
+.row-disp .lt2-col b { display: none; }
+.row-disp .lt2-col { font-size: 11px; }
+/* Revisão 5: margem da legenda e pizza um pouco maiores */
+.row-disp .pie-body { padding-right: 16px; }
+.row-disp .pie { zoom: 0.88; }
+/* Dispositivo: falhas em destaque + % em cinza numa coluna fixa (alinha entre as linhas) */
+.brow-val-pct { display: flex; align-items: baseline; gap: 10px; }
+.brow-val-pct .vp-f { width: 64px; text-align: right; }
+.brow-val-pct .vp-p { width: 44px; text-align: right; font-size: 12px; font-weight: 600; color: var(--text-disabled); }
+.brow.escuro .brow-val-pct .vp-p { color: #6e6e6e; }
+.brow-name .tag.cruz { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.brow-top .brow-name { min-width: 0; }
+/* Dispositivo: ID quase preto e mais forte; tipo em cinza escuro; cruzamento mais claro (#737373 mantém contraste ~4,7:1 no branco) */
+.brow.escuro .brow-name > span:first-child { color: var(--black); font-weight: 700; }
+.brow.escuro .brow-name .tag.cruz { color: #737373; font-weight: 500; }
+/* Dispositivo: ícone "ver no mapa" (abre o Cockpit filtrado no dispositivo) */
+.brow-top:has(.btn-mapa) { gap: 8px; }
+.brow-top:has(.btn-mapa) .brow-name { flex: 1 1 0; }
+.btn-mapa { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 6px; color: var(--text-disabled); }
+.btn-mapa:hover { background: var(--neutral-100); color: var(--text-brand, #d71920); }
+.btn-mapa:focus-visible { outline: 2px solid var(--text-brand, #d71920); outline-offset: 1px; }
+/* Pizza (aba Dispositivo): contagem e % voltam na legenda, em duas linhas por item */
+.row-disp .lt2-col b { display: block; }
+/* sem a palavra "falhas": colunas mais estreitas (o título tem o texto completo) */
+.brow-val-pct { gap: 8px; }
+.brow-val-pct .vp-f { width: 32px; }
+.brow-val-pct .vp-p { width: 44px; }
+/* % entre parênteses, como na legenda da pizza: coluna um pouco mais larga e número colado a ela */
+.brow-val-pct { gap: 4px; }
+.brow-val-pct .vp-p { width: 56px; }
+/* Revisão B: pizza à esquerda, legenda à direita com cada item em UMA linha ("3 a 5 anos 123 (20%)").
+   A legenda ocupa ~125px, então a pizza encolhe para caber na coluna de 1/4. */
+.row-disp .pie-body { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; padding-right: 0; }
+.row-disp .pie { grid-column: auto; zoom: 0.72; flex: none; }
+.row-disp .legend.auto { grid-column: auto; margin-right: 0; flex: 1 1 0; min-width: 0; justify-self: auto; gap: 8px; }
+.row-disp .legend-item.g8 { justify-content: flex-start; gap: 5px; padding: 2px 4px; }
+.row-disp .lt2-col { flex-direction: row; align-items: baseline; gap: 4px; font-size: 11px; white-space: nowrap; }
+.row-disp .lt2-col b { display: inline; font-size: 11px; font-weight: 700; }
+/* Revisão C: o 4º cartão do topo e o card da pizza dividem a mesma largura (--col-pie), então o "Dispositivo" (resto da linha) continua
+   terminando no fim do "Média Diária". Com a coluna mais larga a pizza volta ao tamanho cheio, como na aba Alarme. */
+:root { --col-pie: clamp(380px, 28%, 460px); }
+.row-kpi-disp > .kpi:last-child { flex: 0 0 var(--col-pie); }
+.row-disp { grid-template-columns: minmax(0, 1fr) var(--col-pie); }
+.row-disp > :first-child { grid-column: auto; }
+.row-disp .pie { zoom: 1; }
+.row-disp .lt2-col { font-size: 12px; }
+.row-disp .lt2-col b { font-size: 12px; }
+/* Revisão A (vale): 4 cartões do topo IGUAIS; "Dispositivo" em 3 colunas e a pizza na 4ª, em tamanho cheio, com a legenda embaixo em UMA linha
+   (faixa + %; a contagem de falhas fica no tooltip). Anula a revisão C. */
+.row-kpi-disp > .kpi:last-child { flex: 1 1 0; }
+.row-disp { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.row-disp > :first-child { grid-column: span 3; }
+.row-disp .pie-card { justify-content: flex-start; }
+.row-disp .pie-body { flex-direction: column; align-items: center; justify-content: flex-start; gap: 14px; padding-right: 0; }
+.row-disp .pie { zoom: 1; }
+.row-disp .legend.auto { width: 100%; flex: none; flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 2px 6px; }
+.row-disp .legend-item.g8 { gap: 3px; padding: 2px 3px; }
+.row-disp .lt2-col { font-size: 11px; gap: 3px; }
+.row-disp .lt2-col b { font-size: 11px; }
+.brow.slate .brow-val-pct .vp-p { color: #475569; }
+/* Tooltip das linhas de alarme: aceita mouse (o "+ N dispositivos" é clicável) */
+.chart-tip.flutuante.interativo { pointer-events: auto; padding-top: 10px; }
+.tip-ver { border: 0; background: none; padding: 2px 0; margin-top: 2px; text-align: left; font: 600 11px "Roboto", sans-serif; color: var(--text-brand, #d71920); cursor: pointer; }
+.tip-ver:hover { text-decoration: underline; }
+/* Região: a coluna Sub Área/Corredor tem a largura de UM cartão do topo (Total de Alarmes) e o mapa fica com as outras duas.
+   Mesma grade de 3 colunas e mesmo gap (16px) dos cartões, então as bordas batem. */
+.row-reg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.row-reg > .reg-col { grid-column: span 1; }
+.row-reg > .map-card { grid-column: span 2; flex: none; }
+/* Célula da matriz de região com hover de dispositivos + clique para a aba Dispositivo */
+.mx-cell.vai-disp { cursor: pointer; }
+.mx-cell.vai-disp:hover { filter: brightness(0.94); outline: 2px solid rgba(215, 25, 32, 0.45); outline-offset: -2px; }
