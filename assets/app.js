@@ -96,9 +96,17 @@ function linhaFalhas({ n, extra, f, pct, w, c, vermelho, sel, outros }, { w64 = 
       ${barra(c, w)}
     </div>`;
 }
-function linhaRegiao({ n, f, pct, w, c, sel }) {
+// Hover de uma região (lista ou nome da linha da matriz): dispositivos dela, com o total no título; "+ N" abre a aba Dispositivo filtrada pela região.
+const hoverRegiao = (d, campo, nome) => {
+  if (!d) return null;
+  const itens = d.top.map((x) => ({ n: `${x.n} • ${x.tipo}`, v: x.f }));
+  const mais = d.total - d.top.length;
+  if (mais > 0) itens.push({ ver: { [campo]: [nome] }, n: `+ ${mais} ${mais === 1 ? "dispositivo" : "dispositivos"}` });
+  return { titulo: `Dispositivos (${d.total})`, itens };
+};
+function linhaRegiao({ n, f, pct, w, c, sel, outros }) {
   return `
-    <div class="brow slate${classeSel(sel)}"${attrSel(sel)}>
+    <div class="brow slate${classeSel(sel)}"${attrSel(sel)}${outros ? attrOutros(outros) : ""}>
       <div class="brow-top">
         <div class="brow-name lh125"><span class="nm">${n}</span></div>
         ${valFalhasPct(f, pct)}
@@ -116,7 +124,9 @@ function classeSel(sel) {
 
 /* Valor padrão das listas da aba Dispositivo: falhas em destaque + % em cinza (colunas fixas, alinham entre as linhas).
    A % é sobre as falhas da PRÓPRIA lista (cada lista ignora a seleção da sua dimensão), com 1 casa decimal. */
-const pctDe = (f, lista) => { const base = lista.reduce((a, x) => a + x.f, 0); return `${fmtDec(base ? (f / base) * 100 : 0)}%`; };
+// % curta: 10% ou mais sem casa decimal; de 1 a 10% com uma casa; abaixo de 1% "<1%" (com ~545 dispositivos, quase todos ficam abaixo de 1%)
+const fmtPct = (p) => (p <= 0 ? "0%" : p < 1 ? "<1%" : p < 10 ? `${fmtDec(p)}%` : `${Math.round(p)}%`);
+const pctDe = (f, lista) => { const base = lista.reduce((a, x) => a + x.f, 0); return fmtPct(base ? (f / base) * 100 : 0); };
 const valFalhasPct = (f, pct) => `<span class="brow-val brow-val-pct" title="${f} falhas (${pct})"><span class="vp-f"><span class="n">${f}</span></span><span class="vp-p">(${pct})</span></span>`;
 
 /* Link "ver no mapa": abre o Cockpit já filtrado no dispositivo (?dispositivo=ID). O Cockpit AINDA NÃO lê esse parâmetro;
@@ -348,7 +358,7 @@ function matriz(titulo, descricao, colunas, linhas, { seletor = "", rodape = "",
   const cab = colunas.map((c) => `<div class="mx-col ${c.py8 ? "py8" : ""} ${c.b11 ? "b11" : ""}${c.outros ? " tem-outros" : ""}${classeSel(c.sel)}"${c.outros ? attrOutros(c.outros) : ""}${attrSel(c.sel)}><span>${c.t}</span></div>`).join("");
   const corpo = linhas.map(([nome, celulas]) => `
       <div class="mx-line body${selLinhas ? classeSel({ campo: selLinhas, val: nome }).replace("sel-on", "sel-on-linha") : ""}">
-        <div class="mx-cell row-name"${selLinhas ? attrSel({ campo: selLinhas, val: nome }) : ""}>${nome}</div>
+        <div class="mx-cell row-name"${selLinhas ? attrSel({ campo: selLinhas, val: nome }) : ""}${(() => { const t = celulas[celulas.length - 1], h = selLinhas && t && t[3] ? hoverRegiao(t[3], selLinhas, nome) : null; return h ? attrOutros(h) : ""; })()}>${nome}</div>
         ${celulas.map(([v, tom, extra, disp], j) => {
           if (disp && v > 0 && selLinhas) {
             // hover: dispositivos daquela célula; clique (ou o link do hover): aba Dispositivo filtrada por essa região (+ alarme da coluna)
@@ -356,7 +366,7 @@ function matriz(titulo, descricao, colunas, linhas, { seletor = "", rodape = "",
             const mais = disp.total - disp.top.length;
             const itens = disp.top.map((x) => ({ n: `${x.n} • ${x.tipo}`, v: x.f }));
             if (mais > 0) itens.push({ ver: patch, n: `+ ${mais} ${mais === 1 ? "dispositivo" : "dispositivos"}` }); // sem "+N" (lista completa): o clique na célula continua levando à aba Dispositivo
-            return `<div class="mx-cell ${tom} tem-outros vai-disp"${attrOutros({ titulo: disp.titulo, itens })}${attrIr(patch)}>${v}</div>`;
+            return `<div class="mx-cell ${tom} tem-outros vai-disp"${attrOutros({ titulo: `${disp.titulo} (${disp.total})`, itens })}${attrIr(patch)}>${v}</div>`;
           }
           return `<div class="mx-cell ${tom}${v === 0 ? " zero" : ""}${extra && v > 0 ? " tem-outros" : ""}"${extra && v > 0 ? attrOutros(extra) : ""}>${v === 0 ? "–" : v}</div>`;
         }).join("")}
@@ -419,8 +429,8 @@ function telaRegiao() {
   const subPag = pagina(r.subareas, "subareas");
   const corPag = pagina(r.corredores, "corredores");
   const maxSub = r.subareas[0] ? r.subareas[0].f : 0, maxCor = r.corredores[0] ? r.corredores[0].f : 0;
-  const linhasSub = subPag.itens.map((x) => linhaRegiao({ ...x, pct: pctDe(x.f, r.subareas), w: larguraBarra(x.f, maxSub), c: corPorValor(x.f, maxSub), sel: { campo: "subareas", val: x.n } })).join("");
-  const linhasCor = corPag.itens.map((x) => linhaRegiao({ ...x, pct: pctDe(x.f, r.corredores), w: larguraBarra(x.f, maxCor), c: corPorValor(x.f, maxCor), sel: { campo: "corredores", val: x.n } })).join("");
+  const linhasSub = subPag.itens.map((x) => linhaRegiao({ ...x, outros: hoverRegiao(r.dispositivosPorSubarea[x.n], "subareas", x.n), pct: pctDe(x.f, r.subareas), w: larguraBarra(x.f, maxSub), c: corPorValor(x.f, maxSub), sel: { campo: "subareas", val: x.n } })).join("");
+  const linhasCor = corPag.itens.map((x) => linhaRegiao({ ...x, outros: hoverRegiao(r.dispositivosPorCorredor[x.n], "corredores", x.n), pct: pctDe(x.f, r.corredores), w: larguraBarra(x.f, maxCor), c: corPorValor(x.f, maxCor), sel: { campo: "corredores", val: x.n } })).join("");
   const cartaoLista = (icone, titulo, sub, linhas, chave, pag) => `
       <section class="card card-20" style="flex:1 1 0">
         ${cabecalho({ icone, titulo, sub, classeTitulo: "lh125" })}
@@ -594,7 +604,7 @@ function telaAlarme() {
   const fatias = r.criticidades.map((c) => ({ id: c.n, v: c.v, cor: COR_CRIT[c.n] }));
   const totCrit = r.criticidades.reduce((a, c) => a + c.v, 0);
   const legenda = r.criticidades.map((c) => `
-    <div class="legend-item${classeSel({ campo: "crits", val: c.n })}" data-sel="crits" data-val="${c.n}"><span class="dot6" style="background:${COR_CRIT[c.n]}"></span><div class="lt"><span style="color:${COR_CRIT[c.n]}">${c.n}</span><b>${c.v} (${totCrit ? fmtDec((c.v / totCrit) * 100) : "0,0"}%)</b></div></div>`).join("");
+    <div class="legend-item${classeSel({ campo: "crits", val: c.n })}" data-sel="crits" data-val="${c.n}"><span class="dot6" style="background:${COR_CRIT[c.n]}"></span><div class="lt"><span style="color:${COR_CRIT[c.n]}">${c.n}</span><b>${c.v} (${fmtPct(totCrit ? (c.v / totCrit) * 100 : 0)})</b></div></div>`).join("");
 
   /* --- gráfico de volume: spec do período (o hover mostra só a criticidade) --- */
   const spec = { eixoMax: r.serie.eixoMax, casas: 0, rotulos: r.serie.rotulos, rotulosTip: r.serie.rotulosTip, valores: r.serie.valores };
@@ -616,7 +626,7 @@ function telaAlarme() {
     if (!d) return { titulo: "Dispositivos", itens: [] };
     const itens = d.top.map((x) => ({ n: `${x.n} • ${x.tipo}`, v: x.f }));
     if (d.total > d.top.length) itens.push({ ver: { alarmes: [nome] }, n: `+ ${d.total - d.top.length} ${d.total - d.top.length === 1 ? "dispositivo" : "dispositivos"}` });
-    return { titulo: "Dispositivos", itens };
+    return { titulo: `Dispositivos (${d.total})`, itens };
   };
   const linhasTop = top.itens.map((a) => linhaFalhas({ n: a.n, f: a.f, pct: pctDe(a.f, r.alarmesLista), outros: dispositivosDoAlarme(a.n), w: larguraBarra(a.f, maxTop), c: corPorValor(a.f, maxTop), sel: { campo: "alarmes", val: a.n } })).join("");
   const linhasDur = dur.itens.map((a) => { const t = partesDuracao(a.v); return linhaDuracao({ n: a.n, v: t.v, u: t.u, w: larguraBarra(a.v, maxDur), c: corPorValor(a.v, maxDur), sel: { campo: "alarmes", val: a.n }, auto: true }); }).join("");
@@ -624,22 +634,6 @@ function telaAlarme() {
   return `
     ${htmlChipsSelecao()}
     <div class="row">${kpis}</div>
-    <div class="row">
-      <section class="card card-20 pie-card" style="flex:0 0 clamp(340px,22%,420px)">
-        ${cabecalho({ icone: icone20("aldist", "04c43.svg"), titulo: "Distribuição por Criticidade", sub: DASH.subtitulos.criticidade })}
-        <div class="pie-body">${pizza(fatias, "crits")}<div class="legend">${legenda}</div></div>
-      </section>
-      <section class="card card-20" style="flex:1 1 0;align-items:center">
-        <div class="head-row">
-          <div class="head">
-            <div class="head-title"><div class="ico20" style="padding:4px">${img("aldist", "5f4b6.svg", 16, 16)}</div><span class="t">Volume de Alarmes</span></div>
-            <div class="head-sub">${DASH.subtitulos.volumeAlarmes}</div>
-          </div>
-        </div>
-        ${graficoLinhas(spec)}
-        ${legendaVolume()}
-      </section>
-    </div>
     <div class="row">
       <section class="card card-20" style="flex:1 1 0">
         ${cabecalho({ icone: iconeTrendingUp("aldur"), titulo: "Ocorrências por Alarme", sub: DASH.subtitulos.topAlarmes })}
@@ -653,6 +647,22 @@ function telaAlarme() {
         </div>
         <div class="rows">${linhasDur || vazio("Sem alarmes no período selecionado.")}</div>
         ${paginacao("duracao", dur.atual, dur.total)}
+      </section>
+    </div>
+    <div class="row row-al">
+      <section class="card card-20 pie-card">
+        ${cabecalho({ icone: icone20("aldist", "04c43.svg"), titulo: "Distribuição por Criticidade", sub: DASH.subtitulos.criticidade })}
+        <div class="pie-body">${pizza(fatias, "crits")}<div class="legend">${legenda}</div></div>
+      </section>
+      <section class="card card-20" style="flex:1 1 0;align-items:center">
+        <div class="head-row">
+          <div class="head">
+            <div class="head-title"><div class="ico20" style="padding:4px">${img("aldist", "5f4b6.svg", 16, 16)}</div><span class="t">Volume de Alarmes</span></div>
+            <div class="head-sub">${DASH.subtitulos.volumeAlarmes}</div>
+          </div>
+        </div>
+        ${graficoLinhas(spec)}
+        ${legendaVolume()}
       </section>
     </div>`;
 }
@@ -777,10 +787,10 @@ function telaDispositivo() {
   const faixaAnt = ant && r.topFaixa ? ant.faixasEv.find((f) => f.id === r.topFaixa.id).v : null;
   const alarmeAnt = ant && r.topAlarme ? (ant.alarmes.find((a) => a.n === r.topAlarme.n) || { v: 0 }).v : null;
   const kpis = [
-    kpiCard({ titulo: "Total de falhas ", icone: `<div class="kpi-icon-box pad46">${img("dpkpi", "04c43.svg", 20, 20)}</div>`,
-      numeros: `<div class="kpi-body"><span class="kpi-big black">${fmtInt(r.total)}</span>${trendVar(variacao(r.total, ant && ant.total))}</div>`, sub: "Falhas no período" }),
     kpiCard({ titulo: "Dispositivos com Falha", icone: iconeBox("dpkpi", "f5917.svg"),
       numeros: kpiNumeros(fmtInt(r.dispositivos), trendVar(variacao(r.dispositivos, ant && ant.dispositivos))), sub: `${fmtDec((r.dispositivos / r.parque) * 100)}% do parque afetado` }),
+    kpiCard({ titulo: "Total de falhas ", icone: `<div class="kpi-icon-box pad46">${img("dpkpi", "04c43.svg", 20, 20)}</div>`,
+      numeros: `<div class="kpi-body"><span class="kpi-big black">${fmtInt(r.total)}</span>${trendVar(variacao(r.total, ant && ant.total))}</div>`, sub: "Falhas no período" }),
     kpiCard({ titulo: "Média Diária", icone: iconeCheio("dpkpi", "811c0.svg"),
       numeros: kpiNumeros(fmtDec(r.mediaDiaria), trendVar(variacao(r.mediaDiaria, ant && ant.mediaDiaria))), sub: "Dispositivos com erro/dia" }),
     kpiCard({ titulo: "Faixa de Idade Crítica", icone: iconeInset("dpkpi", "cd44e.svg", 16.063, 16.063, "-4.28% -4.67% -4.67% -4.28%", true),
@@ -807,7 +817,7 @@ function telaDispositivo() {
   const linhasModelos = modelos.itens.map((d) => linhaModelo({ ...d, pct: pctDe(d.f, r.modelos), w: larguraBarra(d.f, r.modelos[0].f), c: corPorValor(d.f, r.modelos[0].f), sel: { campo: "modelos", val: d.n } })).join("");
 
   const legenda = r.faixas.map((f) => `
-    <div class="legend-item g8${classeSel({ campo: "faixas", val: f.id })}" data-sel="faixas" data-val="${f.id}" title="${f.rotulo}: ${f.v} falhas (${pctFaixa(f.v)}%)"><span class="dot10" style="background:${f.cor}"></span><div class="lt2 lt2-col"><span>${f.rotulo.replace(" anos", "").replace(" a ", "–")}</span><b>(${pctFaixa(f.v)}%)</b></div></div>`).join("");
+    <div class="legend-item g8${classeSel({ campo: "faixas", val: f.id })}" data-sel="faixas" data-val="${f.id}" title="${f.rotulo}: ${f.v} falhas (${pctFaixa(f.v)}%)"><span class="dot10" style="background:${f.cor}"></span><div class="lt2 lt2-col"><span>${f.rotulo.replace(" anos", "").replace(" a ", "–")}</span><b><i>${f.v} </i>(${pctFaixa(f.v)}%)</b></div></div>`).join("");
 
   const mx = r.matriz;
   const mxPag = pagina(mx.linhas, "matriz");
@@ -988,9 +998,9 @@ const CAMPOS_FILTRO = [
   { id: "alarmes", grupo: "Alarme", rotulo: "Alarmes", busca: true, placeholder: "Pesquisar alarme" },
   { id: "tipos", grupo: "Dispositivo", rotulo: "Tipo de dispositivo", busca: true, placeholder: "Pesquisar tipo" },
   { id: "fabricantes", grupo: "Dispositivo", rotulo: "Fabricante", busca: true, placeholder: "Pesquisar fabricante" },
-  { id: "modelos", grupo: "Dispositivo", rotulo: "Modelo", busca: true, placeholder: "Pesquisar modelo" },
+  { id: "modelos", grupo: "Dispositivo", rotulo: "Modelo", busca: true, placeholder: "Pesquisar Modelo" },
   { id: "dispositivos", grupo: "Dispositivo", rotulo: "Dispositivo", busca: true, placeholder: "Pesquisar por código (ex.: SEM-1044)" },
-  { id: "subareas", grupo: "Região", rotulo: "Sub Área", busca: true, placeholder: "Pesquisar sub área" },
+  { id: "subareas", grupo: "Região", rotulo: "Sub área", busca: true, placeholder: "Pesquisar sub área" },
   { id: "corredores", grupo: "Região", rotulo: "Corredor", busca: true, placeholder: "Pesquisar corredor" },
 ];
 const DEPENDENTES = { tipos: ["fabricantes", "modelos"], fabricantes: ["modelos"], subareas: ["corredores"] };
@@ -1099,7 +1109,7 @@ function htmlCampoFiltro(c, r) {
   const vazioInvalido = c.id !== "dispositivos" && sel.length === 0;
   return `
     <div class="flt-field${aberto ? " is-open" : ""}">
-      <div class="flt-label-row"><div class="flt-label">${c.rotulo}</div></div>
+      <div class="flt-label-row"><div class="flt-label">${c.rotulo}</div><button type="button" class="pop-link" data-act="flt-todos" data-campo="${c.id}" data-link="${c.id}" ${link ? "" : "hidden"}>${link}</button></div>
       <button type="button" class="flt-select${vazioInvalido ? " is-erro" : ""}" data-act="flt-campo" data-campo="${c.id}" aria-expanded="${aberto}">
         <span class="flt-resumo" data-resumo="${c.id}">${resumoCampo(c.id, r)}</span>
         <span class="ico12">${img("reg", "739b6.svg", 16, 16)}</span>
@@ -1107,7 +1117,7 @@ function htmlCampoFiltro(c, r) {
       ${aberto ? `
       <div class="flt-drop">
         ${c.busca ? `<div class="flt-search">${ICONE_BUSCA}<input type="search" data-busca="${c.id}" placeholder="${c.placeholder}" autocomplete="off"></div>` : ""}
-        <div class="flt-tools">${DEPENDE_DE[c.id] ? `<span class="flt-dep">Só o que vale para: ${DEPENDE_DE[c.id]}</span>` : ""}<button type="button" class="pop-link" data-act="flt-todos" data-campo="${c.id}" data-link="${c.id}" ${link ? "" : "hidden"}>${link}</button></div>
+        ${DEPENDE_DE[c.id] ? `<div class="flt-tools"><span class="flt-dep">Só o que vale para: ${DEPENDE_DE[c.id]}</span></div>` : ""}
         <div class="flt-list" data-lista="${c.id}">${dica}${lista}<div class="flt-empty" data-vazio hidden>Nada encontrado.</div></div>
       </div>` : ""}
     </div>`;

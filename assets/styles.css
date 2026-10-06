@@ -559,7 +559,7 @@ main { display: flex; flex-direction: column; gap: 16px; }
 .brow-val-pct .vp-p { width: 44px; }
 /* % entre parênteses, como na legenda da pizza: coluna um pouco mais larga e número colado a ela */
 .brow-val-pct { gap: 4px; }
-.brow-val-pct .vp-p { width: 56px; }
+.brow-val-pct .vp-p { width: 46px; }
 /* Revisão B: pizza à esquerda, legenda à direita com cada item em UMA linha ("3 a 5 anos 123 (20%)").
    A legenda ocupa ~125px, então a pizza encolhe para caber na coluna de 1/4. */
 .row-disp .pie-body { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; padding-right: 0; }
@@ -602,3 +602,93 @@ main { display: flex; flex-direction: column; gap: 16px; }
 /* Célula da matriz de região com hover de dispositivos + clique para a aba Dispositivo */
 .mx-cell.vai-disp { cursor: pointer; }
 .mx-cell.vai-disp:hover { filter: brightness(0.94); outline: 2px solid rgba(215, 25, 32, 0.45); outline-offset: -2px; }
+
+/* ===== Painel Filtros: visual copiado do desenho do Figma (nó 60:31907) =====
+   Só aparência; o comportamento (um campo aberto por vez, cascata, contagem no Aplicar) continua o do protótipo. */
+.filter-modal { --flt-verde: #0b8a1e; --flt-linha: #d4d4d4; --flt-tinta: #222; width: 368px; padding-bottom: 0; }
+.flt-head { margin: 0 16px; padding: 16px 0 8px; border-bottom: 1px solid var(--flt-linha); }
+.flt-head strong { font-weight: 500; font-size: 20px; color: var(--flt-tinta); }
+.flt-erro { margin: 8px 16px 0; }
+.flt-sec { margin: 0 16px; border-top: 0; border-bottom: 1px solid var(--flt-linha); }
+.flt-sec-btn { padding: 14px 0; font: 500 16px "Roboto", sans-serif; color: var(--flt-tinta); }
+.flt-sec-x { margin-right: 0; }
+.flt-sec-body { padding: 0 0 14px; gap: 12px; }
+.flt-label { margin-bottom: 0; font-weight: 400; font-size: 11px; letter-spacing: 0; text-transform: none; color: var(--text-default); }
+.flt-label-row { min-height: 20px; margin-bottom: 4px; }
+.flt-label-row .pop-link { font-weight: 600; font-size: 11px; color: var(--text-brand); }
+.flt-select { height: 44px; padding: 0 14px; border: 1px solid var(--text-default); border-radius: 8px; font-weight: 400; font-size: 14px; color: var(--flt-tinta); }
+.flt-select:hover { background: #fff; }
+.flt-select[aria-expanded="true"] { border-color: var(--text-default); }
+.flt-select.is-erro { border-color: var(--error-400); color: var(--error-500); }
+.flt-drop { margin-top: 8px; padding: 12px; border: 1px solid var(--text-default); border-radius: 8px; }
+.flt-search { height: 40px; padding: 0 12px; gap: 10px; border: 1px solid var(--flt-linha); border-radius: 8px; margin-bottom: 8px; }
+.flt-search input { font: 400 14px "Roboto", sans-serif; color: var(--flt-tinta); }
+.flt-search input::placeholder { color: var(--text-disabled); }
+.flt-search svg { width: 18px; height: 18px; }
+.flt-tools { min-height: 0; padding: 0 0 6px; }
+.flt-list, .flt-drop .flt-list { max-height: 190px; }
+.flt-check, .flt-drop .flt-check { gap: 12px; padding: 8px 4px; margin: 0; border-radius: 6px; font-weight: 400; font-size: 14px; color: var(--flt-tinta); }
+.flt-check:hover { background: var(--neutral-100); }
+.flt-check input { width: 20px; height: 20px; border-radius: 4px; border: 1.5px solid #c4c4c4; background-size: 12px; }
+.flt-check input:checked { background-color: var(--flt-verde); border-color: var(--flt-verde); }
+.flt-chip { height: 26px; padding: 0 12px; gap: 6px; border: 1px solid #c4c4c4; font-weight: 500; font-size: 12px; color: var(--flt-tinta); }
+.flt-chip:has(input:checked) { background: var(--success-100); border-color: var(--flt-verde); color: var(--flt-tinta); font-weight: 500; }
+.flt-chip:has(input:checked)::before { content: none; }
+.flt-foot { margin-top: 0; padding: 14px 16px; border-top: 0; }
+.flt-foot .pop-link { font-weight: 700; font-size: 13px; color: var(--flt-tinta); }
+.flt-foot .pop-btn { padding: 10px 18px; font-size: 13px; font-weight: 600; border-radius: 8px; }
+/* número e (%) colados: o número alinha à direita na sua coluna e a % à esquerda na dela, então o vão é sempre o mesmo */
+.brow-val-pct { gap: 4px; }
+.brow-val-pct .vp-f { width: 30px; text-align: right; }
+.brow-val-pct .vp-p { width: 44px; text-align: left; }
+/* ícone do mapa colado no nome do dispositivo: caixa menor e menos espaço entre os dois */
+.brow-top:has(.btn-mapa) { gap: 2px; }
+.btn-mapa { width: 24px; height: 24px; }
+.brow-top:has(.btn-mapa) .brow-val-pct { margin-left: 6px; }
+
+/* ===== Pizza da aba Dispositivo (revisão final; vale sobre as anteriores) =====
+   O layout depende da largura REAL do card (container query), não de um palpite:
+   - card largo: pizza maior à esquerda + legenda em coluna à direita (faixa em cima, "N (x%)" embaixo)
+   - card estreito: pizza em cima e legenda numa linha embaixo (só faixa e %) */
+.row-disp .pie-card { container: piecard / inline-size; justify-content: flex-start; overflow: visible; }
+.row-disp .pie-card .pie-body { flex: 1 1 auto; min-height: 0; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding-right: 0; }
+.row-disp .pie-card .pie { zoom: 1; flex: none; }
+.row-disp .pie-card .legend.auto { width: 100%; flex: none; flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 2px 6px; margin: 0; }
+.row-disp .pie-card .legend-item.g8 { gap: 3px; padding: 2px 3px; justify-content: flex-start; }
+.row-disp .pie-card .lt2-col { flex-direction: row; align-items: baseline; gap: 3px; font-size: 11px; line-height: 1.2; white-space: nowrap; }
+.row-disp .pie-card .lt2-col b { display: inline; font-size: 11px; }
+.row-disp .pie-card .lt2-col b i { display: none; font-style: normal; }
+@container piecard (min-width: 340px) {
+  .row-disp .pie-card .pie-body { flex-direction: row; justify-content: space-between; gap: 16px; }
+  .row-disp .pie-card .pie { zoom: 1.15; }
+  .row-disp .pie-card .legend.auto { width: auto; flex-direction: column; flex-wrap: nowrap; justify-content: center; gap: 10px; }
+  .row-disp .pie-card .legend-item.g8 { align-items: flex-start; gap: 6px; padding: 2px 4px; }
+  .row-disp .pie-card .legend-item .dot10 { margin-top: 3px; }
+  .row-disp .pie-card .lt2-col { flex-direction: column; align-items: flex-start; gap: 1px; font-size: 12px; }
+  .row-disp .pie-card .lt2-col b { font-size: 12px; }
+  .row-disp .pie-card .lt2-col b i { display: inline; }
+}
+/* Legenda larga: cada item em UMA linha ("3–5  123 (31%)"), a coluna continua à direita da pizza */
+@container piecard (min-width: 340px) {
+  .row-disp .pie-card .legend-item.g8 { align-items: center; }
+  .row-disp .pie-card .legend-item .dot10 { margin-top: 0; }
+  .row-disp .pie-card .lt2-col { flex-direction: row; align-items: baseline; gap: 6px; font-size: 12px; white-space: nowrap; }
+  .row-disp .pie-card .lt2-col b { font-size: 12px; }
+}
+/* Pizza centralizada no espaço livre à esquerda da legenda (margens automáticas); a legenda fica encostada à direita */
+@container piecard (min-width: 340px) {
+  .row-disp .pie-card .pie-body { justify-content: flex-start; gap: 12px; }
+  .row-disp .pie-card .pie { margin-left: auto; margin-right: auto; }
+}
+
+/* Aba Alarme: o card de Distribuição tem a largura de UM cartão do topo (Total de Alarmes) e o gráfico de linhas começa onde está o
+   "Média Diária" (3 colunas). Mesma grade de 4 colunas e mesmo gap dos KPIs, então as bordas batem. */
+.row-al { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.row-al > .pie-card { grid-column: span 1; flex: none; }
+.row-al > .pie-card .pie-body { gap: 20px; }
+.row-al > .card:not(.pie-card) { grid-column: span 3; }
+/* Final do valor alinhado com o fim da linha/barra: a % encosta na borda direita (coluna justa, texto à direita);
+   o número fica colado nela. A folga de 38px cobre "(<1%)", "(54%)" e "(9,8%)" com no máximo ~6px de variação no vão. */
+.brow-val-pct { gap: 3px; }
+.brow-val-pct .vp-f { width: 30px; text-align: right; }
+.brow-val-pct .vp-p { width: 38px; text-align: right; }

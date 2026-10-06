@@ -342,6 +342,17 @@ const MODELO = (() => {
 
     // aba Região: listas "seletoras" (ignoram a própria seleção), resultados (todas as seleções) e pontos do mapa
     const evSub = evSem(["subareas"]), evCor = evSem(["corredores"]);
+    // dispositivos de cada sub área / corredor (hover das listas e do nome da linha da matriz); cada lista ignora a própria seleção
+    const dispPorChave = (evX, chave) => {
+      const m = new Map();
+      evX.forEach((e) => { const k = chave(e); const d = m.get(k) || new Map(); d.set(e.dev, (d.get(e.dev) || 0) + 1); m.set(k, d); });
+      return Object.fromEntries([...m.entries()].map(([k, d]) => {
+        const lista = [...d.entries()].map(([di, f]) => ({ n: parque[di].id, tipo: parque[di].tipo, f })).sort((a, b) => b.f - a.f || a.n.localeCompare(b.n));
+        return [k, { total: lista.length, top: lista.slice(0, 5) }];
+      }));
+    };
+    const dispositivosPorSubarea = dispPorChave(evSub, (e) => subDe(parque[e.dev]));
+    const dispositivosPorCorredor = dispPorChave(evCor, (e) => corDe(parque[e.dev]));
     const ativos = (fn) => { const m = new Map(); parque.forEach((d) => m.set(fn(d), (m.get(fn(d)) || 0) + 1)); return m; };
     const ativosSub = ativos(subDe), ativosCor = ativos(corDe);
     const subareas = comPct(ordenar(contar(evSub, (e) => subDe(parque[e.dev]))).map(([n, f]) => ({ n, f, ativos: ativosSub.get(n) })), evSub.length);
@@ -368,7 +379,7 @@ const MODELO = (() => {
       serie: { porHora, rotulos, rotulosTip, valores, maxValor, eixoMax: maximoDoEixo(maxValor), totais, eixoMaxTotal: maximoDoEixo(Math.max(0, ...totais)), dispositivos: dispositivosPorPonto, alarmes: alarmesPorPonto },
       topDispositivos, tipos, fabricantes, modelos,
       criticidades, alarmesLista, dispositivosPorAlarme, duracaoPorAlarme, durMedia, pctLongos, tiposDeAlarme,
-      matriz: matrizDisp, matrizSubareas: matrizSub, matrizCorredores: matrizCor,
+      matriz: matrizDisp, matrizSubareas: matrizSub, matrizCorredores: matrizCor, dispositivosPorSubarea, dispositivosPorCorredor,
       subareas, corredores, subareasEv, corredoresEv, mapa,
     };
   }
