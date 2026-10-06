@@ -86,12 +86,12 @@ function paginacao(chave, atual, total, w600 = false) {
 }
 
 /* Linhas de barra em três formatos que o Figma usa. */
-function linhaFalhas({ n, extra, f, pct, w, c, vermelho, sel, outros }, { w64 = true, gap = 8 } = {}) {
+function linhaFalhas({ n, extra, f, pct, tip, w, c, vermelho, sel, outros }, { w64 = true, gap = 8 } = {}) {
   return `
     <div class="brow slate${classeSel(sel)}"${attrSel(sel)}${outros ? attrOutros(outros) : ""}>
       <div class="brow-top">
         <div class="brow-name" style="gap:${gap}px"><span>${n}</span>${extra ? `<span class="tag">${extra}</span>` : ""}</div>
-        ${pct ? valFalhasPct(f, pct) : `<span class="brow-val ${w64 ? "w64" : ""}"><span class="n">${f} </span><span class="u">falhas</span></span>`}
+        ${pct ? valFalhasPct(f, pct, tip) : `<span class="brow-val ${w64 ? "w64" : ""}"><span class="n">${f} </span><span class="u">falhas</span></span>`}
       </div>
       ${barra(c, w)}
     </div>`;
@@ -104,12 +104,12 @@ const hoverRegiao = (d, campo, nome) => {
   if (mais > 0) itens.push({ ver: { [campo]: [nome] }, n: `+ ${mais} ${mais === 1 ? "dispositivo" : "dispositivos"}` });
   return { titulo: `Dispositivos (${d.total})`, itens };
 };
-function linhaRegiao({ n, f, pct, w, c, sel, outros }) {
+function linhaRegiao({ n, f, pct, tip, w, c, sel, outros }) {
   return `
     <div class="brow slate${classeSel(sel)}"${attrSel(sel)}${outros ? attrOutros(outros) : ""}>
       <div class="brow-top">
         <div class="brow-name lh125"><span class="nm">${n}</span></div>
-        ${valFalhasPct(f, pct)}
+        ${valFalhasPct(f, pct, tip)}
       </div>
       ${barra(c, w)}
     </div>`;
@@ -126,8 +126,16 @@ function classeSel(sel) {
    A % é sobre as falhas da PRÓPRIA lista (cada lista ignora a seleção da sua dimensão), com 1 casa decimal. */
 // % curta: 10% ou mais sem casa decimal; de 1 a 10% com uma casa; abaixo de 1% "<1%" (com ~545 dispositivos, quase todos ficam abaixo de 1%)
 const fmtPct = (p) => (p <= 0 ? "0%" : p < 1 ? "<1%" : p < 10 ? `${fmtDec(p)}%` : `${Math.round(p)}%`);
+// Hover do valor (tooltip nativo do navegador, sem estilo): "333 falhas: 54,2% do total de 616 falhas no período".
+// A % curta da linha perde precisão; aqui vai com 1 casa e a base explícita.
+const UNIDADE_SING = { falhas: "falha", alarmes: "alarme" };
+const valTip = (f, lista, unid) => {
+  const base = lista.reduce((a, x) => a + x.f, 0), p = base ? (f / base) * 100 : 0;
+  const u = (n) => (n === 1 ? UNIDADE_SING[unid] : unid);
+  return `${f} ${u(f)}: ${fmtDec(p)}% do total de ${base} ${u(base)} no período`;
+};
 const pctDe = (f, lista) => { const base = lista.reduce((a, x) => a + x.f, 0); return fmtPct(base ? (f / base) * 100 : 0); };
-const valFalhasPct = (f, pct) => `<span class="brow-val brow-val-pct" title="${f} falhas (${pct})"><span class="vp-f"><span class="n">${f}</span></span><span class="vp-p">(${pct})</span></span>`;
+const valFalhasPct = (f, pct, tip) => `<span class="brow-val brow-val-pct"${tip ? ` title="${tip}"` : ""}><span class="vp-f"><span class="n">${f}</span></span><span class="vp-p">(${pct})</span></span>`;
 
 /* Link "ver no mapa": abre o Cockpit já filtrado no dispositivo (?dispositivo=ID). O Cockpit AINDA NÃO lê esse parâmetro;
    a URL publicada do Cockpit ainda não existe aqui. */
@@ -135,33 +143,33 @@ const valFalhasPct = (f, pct) => `<span class="brow-val brow-val-pct" title="${f
 const URL_COCKPIT = location.hostname === "localhost" ? "http://localhost:8746/" : "../cockpit-prototipo/index.html";
 const iconeMapa = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>`;
 
-function linhaDispositivo({ n, tipo, cruz, f, pct, w, c, gap10, sel }) {
+function linhaDispositivo({ n, tipo, cruz, f, pct, tip, w, c, gap10, sel }) {
   return `
     <div class="brow escuro${classeSel(sel)}"${attrSel(sel)}>
       <div class="brow-top">
         <a class="btn-mapa" data-mapa href="${URL_COCKPIT}?dispositivo=${encodeURIComponent(n)}" target="_blank" rel="noopener" title="Ver ${n} no mapa do Cockpit" aria-label="Ver ${n} no mapa do Cockpit">${iconeMapa}</a>
         <div class="brow-name" style="gap:${gap10 ? 10 : 8}px"><span>${n}</span><span class="tag"><span style="font-weight:400">• </span>${tipo}</span>${cruz ? `<span class="tag cruz"><span style="font-weight:400">• </span>${cruz}</span>` : ""}</div>
-        ${valFalhasPct(f, pct)}
+        ${valFalhasPct(f, pct, tip)}
       </div>
       ${barra(c, w)}
     </div>`;
 }
-function linhaPercentual({ n, f, pct, w, c, gap10, sel }) {
+function linhaPercentual({ n, f, pct, tip, w, c, gap10, sel }) {
   return `
     <div class="brow${classeSel(sel)}"${attrSel(sel)}>
       <div class="brow-top">
         <div class="brow-name lh125" style="gap:${gap10 ? 10 : 8}px"><span class="nm">${n}</span></div>
-        ${valFalhasPct(f, pct)}
+        ${valFalhasPct(f, pct, tip)}
       </div>
       ${barra(c, w)}
     </div>`;
 }
-function linhaModelo({ n, fab, f, pct, w, c, sel }) {
+function linhaModelo({ n, fab, f, pct, tip, w, c, sel }) {
   return `
     <div class="brow${classeSel(sel)}"${attrSel(sel)}>
       <div class="brow-top">
         <div class="brow-name lh125"><span class="nm">${n}</span><span class="tag b12">• ${fab}</span></div>
-        ${valFalhasPct(f, pct)}
+        ${valFalhasPct(f, pct, tip)}
       </div>
       ${barra(c, w)}
     </div>`;
@@ -429,8 +437,8 @@ function telaRegiao() {
   const subPag = pagina(r.subareas, "subareas");
   const corPag = pagina(r.corredores, "corredores");
   const maxSub = r.subareas[0] ? r.subareas[0].f : 0, maxCor = r.corredores[0] ? r.corredores[0].f : 0;
-  const linhasSub = subPag.itens.map((x) => linhaRegiao({ ...x, outros: hoverRegiao(r.dispositivosPorSubarea[x.n], "subareas", x.n), pct: pctDe(x.f, r.subareas), w: larguraBarra(x.f, maxSub), c: corPorValor(x.f, maxSub), sel: { campo: "subareas", val: x.n } })).join("");
-  const linhasCor = corPag.itens.map((x) => linhaRegiao({ ...x, outros: hoverRegiao(r.dispositivosPorCorredor[x.n], "corredores", x.n), pct: pctDe(x.f, r.corredores), w: larguraBarra(x.f, maxCor), c: corPorValor(x.f, maxCor), sel: { campo: "corredores", val: x.n } })).join("");
+  const linhasSub = subPag.itens.map((x) => linhaRegiao({ ...x, outros: hoverRegiao(r.dispositivosPorSubarea[x.n], "subareas", x.n), pct: pctDe(x.f, r.subareas), tip: valTip(x.f, r.subareas, "falhas"), w: larguraBarra(x.f, maxSub), c: corPorValor(x.f, maxSub), sel: { campo: "subareas", val: x.n } })).join("");
+  const linhasCor = corPag.itens.map((x) => linhaRegiao({ ...x, outros: hoverRegiao(r.dispositivosPorCorredor[x.n], "corredores", x.n), pct: pctDe(x.f, r.corredores), tip: valTip(x.f, r.corredores, "falhas"), w: larguraBarra(x.f, maxCor), c: corPorValor(x.f, maxCor), sel: { campo: "corredores", val: x.n } })).join("");
   const cartaoLista = (icone, titulo, sub, linhas, chave, pag) => `
       <section class="card card-20" style="flex:1 1 0">
         ${cabecalho({ icone, titulo, sub, classeTitulo: "lh125" })}
@@ -628,7 +636,7 @@ function telaAlarme() {
     if (d.total > d.top.length) itens.push({ ver: { alarmes: [nome] }, n: `+ ${d.total - d.top.length} ${d.total - d.top.length === 1 ? "dispositivo" : "dispositivos"}` });
     return { titulo: `Dispositivos (${d.total})`, itens };
   };
-  const linhasTop = top.itens.map((a) => linhaFalhas({ n: a.n, f: a.f, pct: pctDe(a.f, r.alarmesLista), outros: dispositivosDoAlarme(a.n), w: larguraBarra(a.f, maxTop), c: corPorValor(a.f, maxTop), sel: { campo: "alarmes", val: a.n } })).join("");
+  const linhasTop = top.itens.map((a) => linhaFalhas({ n: a.n, f: a.f, pct: pctDe(a.f, r.alarmesLista), tip: valTip(a.f, r.alarmesLista, "alarmes"), outros: dispositivosDoAlarme(a.n), w: larguraBarra(a.f, maxTop), c: corPorValor(a.f, maxTop), sel: { campo: "alarmes", val: a.n } })).join("");
   const linhasDur = dur.itens.map((a) => { const t = partesDuracao(a.v); return linhaDuracao({ n: a.n, v: t.v, u: t.u, w: larguraBarra(a.v, maxDur), c: corPorValor(a.v, maxDur), sel: { campo: "alarmes", val: a.n }, auto: true }); }).join("");
 
   return `
@@ -811,10 +819,10 @@ function telaDispositivo() {
   const modelos = pagina(r.modelos, "modelos");
   const totFaixas = r.faixas.reduce((a, f) => a + f.v, 0);
   const pctFaixa = (v) => (totFaixas ? Math.round((v / totFaixas) * 100) : 0);
-  const linhasTop = top.itens.map((d) => linhaDispositivo({ ...d, pct: pctDe(d.f, r.topDispositivos), w: larguraBarra(d.f, maxTop), c: corPorValor(d.f, maxTop), sel: { campo: "dispositivos", val: d.n } })).join("");
-  const linhasTipos = tipos.itens.map((d) => linhaPercentual({ n: d.n, f: d.f, pct: pctDe(d.f, r.tipos), w: larguraBarra(d.f, r.tipos[0].f), c: corPorValor(d.f, r.tipos[0].f), sel: { campo: "tipos", val: d.n } })).join("");
-  const linhasFabs = fabs.itens.map((d) => linhaPercentual({ n: d.n, f: d.f, pct: pctDe(d.f, r.fabricantes), w: larguraBarra(d.f, r.fabricantes[0].f), c: corPorValor(d.f, r.fabricantes[0].f), sel: { campo: "fabricantes", val: d.n } })).join("");
-  const linhasModelos = modelos.itens.map((d) => linhaModelo({ ...d, pct: pctDe(d.f, r.modelos), w: larguraBarra(d.f, r.modelos[0].f), c: corPorValor(d.f, r.modelos[0].f), sel: { campo: "modelos", val: d.n } })).join("");
+  const linhasTop = top.itens.map((d) => linhaDispositivo({ ...d, pct: pctDe(d.f, r.topDispositivos), tip: valTip(d.f, r.topDispositivos, "falhas"), w: larguraBarra(d.f, maxTop), c: corPorValor(d.f, maxTop), sel: { campo: "dispositivos", val: d.n } })).join("");
+  const linhasTipos = tipos.itens.map((d) => linhaPercentual({ n: d.n, f: d.f, pct: pctDe(d.f, r.tipos), tip: valTip(d.f, r.tipos, "falhas"), w: larguraBarra(d.f, r.tipos[0].f), c: corPorValor(d.f, r.tipos[0].f), sel: { campo: "tipos", val: d.n } })).join("");
+  const linhasFabs = fabs.itens.map((d) => linhaPercentual({ n: d.n, f: d.f, pct: pctDe(d.f, r.fabricantes), tip: valTip(d.f, r.fabricantes, "falhas"), w: larguraBarra(d.f, r.fabricantes[0].f), c: corPorValor(d.f, r.fabricantes[0].f), sel: { campo: "fabricantes", val: d.n } })).join("");
+  const linhasModelos = modelos.itens.map((d) => linhaModelo({ ...d, pct: pctDe(d.f, r.modelos), tip: valTip(d.f, r.modelos, "falhas"), w: larguraBarra(d.f, r.modelos[0].f), c: corPorValor(d.f, r.modelos[0].f), sel: { campo: "modelos", val: d.n } })).join("");
 
   const legenda = r.faixas.map((f) => `
     <div class="legend-item g8${classeSel({ campo: "faixas", val: f.id })}" data-sel="faixas" data-val="${f.id}" title="${f.rotulo}: ${f.v} falhas (${pctFaixa(f.v)}%)"><span class="dot10" style="background:${f.cor}"></span><div class="lt2 lt2-col"><span>${f.rotulo.replace(" anos", "").replace(" a ", "–")}</span><b><i>${f.v} </i>(${pctFaixa(f.v)}%)</b></div></div>`).join("");
