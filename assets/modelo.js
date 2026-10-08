@@ -34,16 +34,16 @@ const MODELO = (() => {
 
   const TIPOS = [
     { tipo: "Controlador", prefixo: "SEM", peso: 0.4,
-      marcas: [{ fab: "Traffix Inc.", modelo: "SEM-400 Pro", peso: 0.7 }, { fab: "Siemens | Sitraffic", modelo: "Sitraffic SEM-200", peso: 0.3 }],
+      marcas: [{ fab: "Traffix Inc.", modelo: "Traffix 400 Pro", peso: 0.7 }, { fab: "Siemens | Sitraffic", modelo: "Sitraffic C-200", peso: 0.3 }],
       alarmes: ["Falha na comunicação", "Sem Comunicação / Offline", "Queima total do vermelho", "Falha na Ativação do Relé", "Falha no PCD", "Semáforo Piscante Amarelo", "Subtensão Elétrica", "Porta Gabinete Aberta", "Falha Sincronia GPS"] },
     { tipo: "Câmera", prefixo: "CAM", peso: 0.25,
-      marcas: [{ fab: "Hikvision", modelo: "SmartCam CAM-X", peso: 0.6 }, { fab: "Bosch", modelo: "Bosch DINION", peso: 0.4 }],
+      marcas: [{ fab: "Hikvision", modelo: "SmartCam X1", peso: 0.6 }, { fab: "Bosch", modelo: "Bosch DINION", peso: 0.4 }],
       alarmes: ["Falha na comunicação", "Sem Comunicação / Offline", "Subtensão Elétrica", "Falha Sincronia GPS"] },
     { tipo: "Nobreak | UPS", prefixo: "DEV", peso: 0.15,
-      marcas: [{ fab: "Eaton Power", modelo: "UPS-DEV 1000", peso: 0.7 }, { fab: "APC", modelo: "Smart-UPS 1500", peso: 0.3 }],
+      marcas: [{ fab: "Eaton Power", modelo: "PowerGuard 1000", peso: 0.7 }, { fab: "APC", modelo: "Smart-UPS 1500", peso: 0.3 }],
       alarmes: ["Subtensão Elétrica", "Porta aberta", "Sem Comunicação / Offline"] },
     { tipo: "Detector", prefixo: "DET", peso: 0.12,
-      marcas: [{ fab: "Siemens | Sitraffic", modelo: "Sitraffic DET-900", peso: 0.6 }, { fab: "Bosch", modelo: "Bosch DET-5", peso: 0.4 }],
+      marcas: [{ fab: "Siemens | Sitraffic", modelo: "Sitraffic D-900", peso: 0.6 }, { fab: "Bosch", modelo: "Bosch D-5", peso: 0.4 }],
       alarmes: ["Falha na comunicação", "Sem Comunicação / Offline", "Falha no PCD"] },
     { tipo: "Sensor de movimento", prefixo: "SNS", peso: 0.08,
       marcas: [{ fab: "Bosch", modelo: "Bosch BSM-20", peso: 1 }],
@@ -102,6 +102,11 @@ const MODELO = (() => {
   function gerarParque() {
     const rnd = mulberry32(20261002);
     const lista = [];
+    // código do dispositivo: 6 dígitos (como o id do controlador no cadastro), sem relação com o nome do modelo.
+    // Semente própria para não alterar o resto da base; sem repetição.
+    const rndId = mulberry32(60606060);
+    const usados = new Set();
+    const novoCodigo = () => { let c; do { c = String(100000 + Math.floor(rndId() * 900000)); } while (usados.has(c)); usados.add(c); return c; };
     TIPOS.forEach((t) => {
       const n = Math.round(PARQUE * t.peso);
       for (let i = 0; i < n; i++) {
@@ -109,7 +114,7 @@ const MODELO = (() => {
         const idade = 0.3 + rnd() * 10.2;
         // alarme "preferido" do dispositivo: faz a matriz Dispositivo x Alarme ter padrões
         const pref = t.alarmes[sorteioPonderado(rnd, t.alarmes.map((a) => ALARMES[IDX[a]].peso))];
-        lista.push({ id: `${t.prefixo}-${1000 + lista.length}`, tipo: t.tipo, fab: marca.fab, modelo: marca.modelo, idade, faixa: faixaDaIdade(idade), pref, permitidos: t.alarmes });
+        lista.push({ id: novoCodigo(), tipo: t.tipo, fab: marca.fab, modelo: marca.modelo, idade, faixa: faixaDaIdade(idade), pref, permitidos: t.alarmes });
       }
     });
     // sub área, corredor e coordenadas (inventados), com semente própria para não alterar o resto da base
@@ -185,7 +190,10 @@ const MODELO = (() => {
   function dataMinima(hoje) { return new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() - (DIAS_BASE - 1)); }
 
   // degrau "redondo" do eixo Y: 5 intervalos; devolve o máximo do eixo (5 x degrau)
+  // Valores pequenos (até 5): o eixo vai até o maior valor + 2 (1 intervalo por unidade), para a linha não ficar batendo no topo
+  // e sem um eixo até 5 quando o dia mais cheio tem 2 falhas.
   function maximoDoEixo(max) {
+    if (max <= 5) return Math.max(1, Math.ceil(max)) + 2;
     const passos = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000];
     const s = passos.find((p) => p * 5 >= max) || 1000;
     return s * 5;

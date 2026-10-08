@@ -135,7 +135,7 @@ const valTip = (f, lista, unid) => {
   return `${f} ${u(f)}: ${fmtDec(p)}% do total de ${base} ${u(base)} no período`;
 };
 const pctDe = (f, lista) => { const base = lista.reduce((a, x) => a + x.f, 0); return fmtPct(base ? (f / base) * 100 : 0); };
-const valFalhasPct = (f, pct, tip) => `<span class="brow-val brow-val-pct"${tip ? ` title="${tip}"` : ""}><span class="vp-f"><span class="n">${f}</span></span><span class="vp-p">(${pct})</span></span>`;
+const valFalhasPct = (f, pct, tip) => `<span class="brow-val brow-val-pct"${tip ? ` title="${tip}"` : ""}><span class="vp-f"><span class="n">${f}</span></span><span class="vp-p">${pct}</span></span>`;
 
 /* Link "ver no mapa": abre o Cockpit já filtrado no dispositivo (?dispositivo=ID). O Cockpit AINDA NÃO lê esse parâmetro;
    a URL publicada do Cockpit ainda não existe aqui. */
@@ -219,8 +219,9 @@ function graficoLinhas(spec) {
   const idx = GRAFICOS.push(spec) - 1;
   const N = spec.rotulos.length;
   const series = spec.series || SERIES_VOLUME;
-  const passoY = spec.eixoMax / 5;
-  const yAxis = [0, 1, 2, 3, 4, 5].map((i) => `
+  const nInt = spec.eixoMax <= 7 ? spec.eixoMax : 5; // intervalos do eixo Y: 1 por unidade quando o máximo é pequeno (até 7), senão 5
+  const passoY = spec.eixoMax / nInt;
+  const yAxis = Array.from({ length: nInt + 1 }, (_, i) => i).map((i) => `
       <div class="y-item"><span class="y-label">${Math.round(spec.eixoMax - i * passoY)}</span><div class="y-line"></div></div>`).join("");
   const caminhos = series.map((s) => {
     const d = spec.valores[s.n].map((v, i) => `${i ? "L" : "M"}${((i / (N - 1)) * 1000).toFixed(1)} ${(((spec.eixoMax - v) / spec.eixoMax) * 1000).toFixed(1)}`).join(" ");
@@ -463,7 +464,7 @@ function telaRegiao() {
     <div class="row">${kpis}</div>
     <div class="row row-reg">
       <div class="reg-col">
-        ${cartaoLista(icone20("reg", "155e2.svg"), "Falhas por Sub Área", DASH.subtitulos.porSubarea, linhasSub, "subareas", subPag)}
+        ${cartaoLista(icone20("reg", "155e2.svg"), "Falhas por Sub áreas", DASH.subtitulos.porSubarea, linhasSub, "subareas", subPag)}
         ${cartaoLista(icone20("reg", "02fb0.svg"), "Falhas por Corredor", DASH.subtitulos.porCorredor, linhasCor, "corredores", corPag)}
       </div>
       <section class="map-card" style="flex:1.6 1 0">
@@ -611,7 +612,11 @@ function telaAlarme() {
   /* --- pizza de criticidade (clicável) e legenda --- */
   const fatias = r.criticidades.map((c) => ({ id: c.n, v: c.v, cor: COR_CRIT[c.n] }));
   const totCrit = r.criticidades.reduce((a, c) => a + c.v, 0);
-  const legenda = r.criticidades.map((c) => `
+  // com uma criticidade escolhida, a pizza some (seria um círculo inteiro): fica só a linha dela na legenda (clique desfaz)
+  // (vale também quando só uma fatia tem dados: círculo inteiro não informa nada, e as outras linhas seriam 0%)
+  const critUnica = totCrit > 0 && (estado.selecao.crits.length === 1 || r.criticidades.filter((c) => c.v > 0).length === 1);
+  const critVisivel = (c) => (estado.selecao.crits.length === 1 ? estado.selecao.crits.includes(c.n) : c.v > 0);
+  const legenda = r.criticidades.filter((c) => !critUnica || critVisivel(c)).map((c) => `
     <div class="legend-item${classeSel({ campo: "crits", val: c.n })}" data-sel="crits" data-val="${c.n}"><span class="dot6" style="background:${COR_CRIT[c.n]}"></span><div class="lt"><span style="color:${COR_CRIT[c.n]}">${c.n}</span><b>${c.v} (${fmtPct(totCrit ? (c.v / totCrit) * 100 : 0)})</b></div></div>`).join("");
 
   /* --- gráfico de volume: spec do período (o hover mostra só a criticidade) --- */
@@ -660,7 +665,7 @@ function telaAlarme() {
     <div class="row row-al">
       <section class="card card-20 pie-card">
         ${cabecalho({ icone: icone20("aldist", "04c43.svg"), titulo: "Distribuição por Criticidade", sub: DASH.subtitulos.criticidade })}
-        <div class="pie-body">${pizza(fatias, "crits")}<div class="legend">${legenda}</div></div>
+        <div class="pie-body${critUnica ? " is-compacta" : ""}">${critUnica ? "" : pizza(fatias, "crits")}<div class="legend">${legenda}</div></div>
       </section>
       <section class="card card-20" style="flex:1 1 0;align-items:center">
         <div class="head-row">
@@ -812,11 +817,13 @@ function telaDispositivo() {
     series: [{ n: "Falhas", cor: COR_TOTAL }], valores: { "Falhas": r.serie.totais }, listaTip: r.serie.dispositivos };
 
   /* --- listas paginadas --- */
-  const top = pagina(r.topDispositivos, "topDisp");
+  // Com um valor escolhido numa lista, ela mostra só o(s) escolhido(s); % e barra seguem a lista completa (a base não muda).
+  const soEscolhidos = (lista, campo) => { const sel = estado.selecao[campo]; return sel && sel.length ? lista.filter((d) => sel.includes(d.n)) : lista; };
+  const top = pagina(soEscolhidos(r.topDispositivos, "dispositivos"), "topDisp");
   const maxTop = r.topDispositivos[0] ? r.topDispositivos[0].f : 0;
-  const tipos = pagina(r.tipos, "tipos");
-  const fabs = pagina(r.fabricantes, "fabricantes");
-  const modelos = pagina(r.modelos, "modelos");
+  const tipos = pagina(soEscolhidos(r.tipos, "tipos"), "tipos");
+  const fabs = pagina(soEscolhidos(r.fabricantes, "fabricantes"), "fabricantes");
+  const modelos = pagina(soEscolhidos(r.modelos, "modelos"), "modelos");
   const totFaixas = r.faixas.reduce((a, f) => a + f.v, 0);
   const pctFaixa = (v) => (totFaixas ? Math.round((v / totFaixas) * 100) : 0);
   const linhasTop = top.itens.map((d) => linhaDispositivo({ ...d, pct: pctDe(d.f, r.topDispositivos), tip: valTip(d.f, r.topDispositivos, "falhas"), w: larguraBarra(d.f, maxTop), c: corPorValor(d.f, maxTop), sel: { campo: "dispositivos", val: d.n } })).join("");
@@ -824,10 +831,17 @@ function telaDispositivo() {
   const linhasFabs = fabs.itens.map((d) => linhaPercentual({ n: d.n, f: d.f, pct: pctDe(d.f, r.fabricantes), tip: valTip(d.f, r.fabricantes, "falhas"), w: larguraBarra(d.f, r.fabricantes[0].f), c: corPorValor(d.f, r.fabricantes[0].f), sel: { campo: "fabricantes", val: d.n } })).join("");
   const linhasModelos = modelos.itens.map((d) => linhaModelo({ ...d, pct: pctDe(d.f, r.modelos), tip: valTip(d.f, r.modelos, "falhas"), w: larguraBarra(d.f, r.modelos[0].f), c: corPorValor(d.f, r.modelos[0].f), sel: { campo: "modelos", val: d.n } })).join("");
 
-  const legenda = r.faixas.map((f) => `
+  // idem: com uma faixa escolhida, só a linha dela (o % continua sendo a fatia sobre o total de todas as faixas)
+  // (vale também quando só uma faixa tem dados: círculo inteiro não informa nada, e as outras linhas seriam 0%)
+  const faixaUnica = totFaixas > 0 && (estado.selecao.faixas.length === 1 || r.faixas.filter((f) => f.v > 0).length === 1);
+  const faixaVisivel = (f) => (estado.selecao.faixas.length === 1 ? estado.selecao.faixas.includes(f.id) : f.v > 0);
+  const legenda = r.faixas.filter((f) => !faixaUnica || faixaVisivel(f)).map((f) => `
     <div class="legend-item g8${classeSel({ campo: "faixas", val: f.id })}" data-sel="faixas" data-val="${f.id}" title="${f.rotulo}: ${f.v} falhas (${pctFaixa(f.v)}%)"><span class="dot10" style="background:${f.cor}"></span><div class="lt2 lt2-col"><span>${f.rotulo.replace(" anos", "").replace(" a ", "–")}</span><b><i>${f.v} </i>(${pctFaixa(f.v)}%)</b></div></div>`).join("");
 
-  const mx = r.matriz;
+  const mx = { ...r.matriz }; // cópia: abaixo troco `linhas` e isso não pode alterar o resultado do modelo
+  // com dispositivo(s) escolhido(s), a matriz mostra só a(s) linha(s) dele(s) (as colunas seguem as da página)
+  const selDisp = estado.selecao.dispositivos;
+  if (selDisp.length) mx.linhas = mx.linhas.filter(([nome]) => selDisp.includes(nome));
   const mxPag = pagina(mx.linhas, "matriz");
   const mxVis = ordenarColunasDaPagina(mx.colunas, mxPag.itens);
   // cabeçalhos de alarme são clicáveis (menos "Outros alarmes" e "Total")
@@ -837,13 +851,13 @@ function telaDispositivo() {
     <div class="row row-kpi-disp">${kpis}</div>
     <div class="row row-disp">
       <section class="card card-20">
-        ${cabecalho({ icone: iconeTrendingUp("dptop"), titulo: "Dispositivo", classeTitulo: "lh125", sub: DASH.subtitulos.topDispositivos })}
+        ${cabecalho({ icone: iconeTrendingUp("dptop"), titulo: "Dispositivos", classeTitulo: "lh125", sub: DASH.subtitulos.topDispositivos })}
         <div class="rows gap24">${linhasTop || vazio()}</div>
         ${paginacao("topDisp", top.atual, top.total)}
       </section>
       <section class="card card-20 pie-card">
         ${cabecalho({ icone: icone20("dptop", "04c43.svg"), titulo: "Distribuição de falhas por faixa de idade", classeTitulo: "t16", sub: DASH.subtitulos.faixaIdade })}
-        <div class="pie-body">${pizza(r.faixas)}<div class="legend auto">${legenda}</div></div>
+        <div class="pie-body${faixaUnica ? " is-compacta" : ""}">${faixaUnica ? "" : pizza(r.faixas)}<div class="legend auto">${legenda}</div></div>
       </section>
     </div>
     <div class="row">
@@ -894,9 +908,9 @@ const deChave = (k) => { const [y, m, d] = k.split("-").map(Number); return new 
 
 const PRESETS = [
   { id: "hoje", chip: "Hoje", rotulo: "Hoje", botao: "Hoje", faixa: (t) => [t, t] },
-  { id: "7d", chip: "7 dias", rotulo: "Últimos 7 dias", botao: "Últimos 7 Dias", faixa: (t) => [addDias(t, -6), t] },
-  { id: "30d", chip: "30 dias", rotulo: "Últimos 30 dias", botao: "Últimos 30 Dias", faixa: (t) => [addDias(t, -29), t] },
-  { id: "90d", chip: "90 dias", rotulo: "Últimos 90 dias", botao: "Últimos 90 Dias", faixa: (t) => [addDias(t, -89), t] },
+  { id: "7d", chip: "7 Dias", rotulo: "Últimos 7 dias", botao: "Últimos 7 Dias", faixa: (t) => [addDias(t, -6), t] },
+  { id: "30d", chip: "30 Dias", rotulo: "Últimos 30 dias", botao: "Últimos 30 Dias", faixa: (t) => [addDias(t, -29), t] },
+  { id: "90d", chip: "90 Dias", rotulo: "Últimos 90 dias", botao: "Últimos 90 Dias", faixa: (t) => [addDias(t, -89), t] },
 ];
 
 function periodoDoPreset(id) {
@@ -963,7 +977,7 @@ function htmlCalendario(r) {
   return `
     <div class="dp-cal-head">
       <button type="button" class="dp-nav" data-mes="-1" aria-label="Mês anterior" ${mes <= new Date(minimo.getFullYear(), minimo.getMonth(), 1) ? "disabled" : ""}>${img("reg", "6428f.svg", 14, 14)}</button>
-      <button type="button" class="dp-title" data-visao="meses" aria-label="Escolher o mês">${MESES[mes.getMonth()]} de ${mes.getFullYear()}${SETA_TITULO}</button>
+      <button type="button" class="dp-title" data-visao="meses" aria-label="Escolher o mês">${MESES[mes.getMonth()]} ${mes.getFullYear()}${SETA_TITULO}</button>
       <button type="button" class="dp-nav" data-mes="1" aria-label="Próximo mês" ${ehUltimoMes ? "disabled" : ""}>${img("reg", "e0d07.svg", 14, 14)}</button>
     </div>
     <div class="dp-grid">${["D", "S", "T", "Q", "Q", "S", "S"].map((w) => `<div class="dp-wd">${w}</div>`).join("")}${cel}</div>`;
@@ -1007,7 +1021,7 @@ const CAMPOS_FILTRO = [
   { id: "tipos", grupo: "Dispositivo", rotulo: "Tipo de dispositivo", busca: true, placeholder: "Pesquisar tipo" },
   { id: "fabricantes", grupo: "Dispositivo", rotulo: "Fabricante", busca: true, placeholder: "Pesquisar fabricante" },
   { id: "modelos", grupo: "Dispositivo", rotulo: "Modelo", busca: true, placeholder: "Pesquisar Modelo" },
-  { id: "dispositivos", grupo: "Dispositivo", rotulo: "Dispositivo", busca: true, placeholder: "Pesquisar por código (ex.: SEM-1044)" },
+  { id: "dispositivos", grupo: "Dispositivo", rotulo: "Dispositivo", busca: true, placeholder: "Pesquisar por código (ex.: 123456)" },
   { id: "subareas", grupo: "Região", rotulo: "Sub área", busca: true, placeholder: "Pesquisar sub área" },
   { id: "corredores", grupo: "Região", rotulo: "Corredor", busca: true, placeholder: "Pesquisar corredor" },
 ];
@@ -1057,7 +1071,7 @@ function resumoCampo(id, f) {
 
 function textoLinkTodos(id, f) {
   if (id === "dispositivos") return f.dispositivos.length ? "Limpar seleção" : "";
-  return f[id].length === opcoesTotais(id, f) ? "Desmarcar todos" : "Marcar todos";
+  return f[id].length === opcoesTotais(id, f) ? "Desmarcar Todos" : "Marcar Todos";
 }
 
 function opcoesDoCampo(id, f) {
@@ -1161,7 +1175,6 @@ function htmlFiltros(r) {
   const ok = filtrosValidos(r);
   const ap = estadoAplicar(r);
   return `
-    <div class="flt-head"><strong>Filtros</strong></div>
     ${GRUPOS_FILTRO.map((g) => htmlSecao(g, r)).join("")}
     <div class="flt-erro" id="fltErro" ${ok ? "hidden" : ""}>Deixe ao menos uma opção marcada em cada campo.</div>
     <div class="flt-foot">
@@ -1354,6 +1367,8 @@ function render() {
   GRAFICOS.length = 0;
   desmontarMapa();
   $("#view").innerHTML = TELAS[id]();
+  // um só dispositivo escolhido: cada lista vira uma linha, então a tela fica compacta (cards e gráfico mais baixos) para caber sem rolar
+  $("#view").classList.toggle("is-foco", id === "dispositivo" && estado.selecao.dispositivos.length === 1);
   iniciarGraficos();
   if (id === "regiao") montarMapa();
   document.title = `Dashboard de Alertas — ${ROTAS.find((r) => r.id === id).rotulo}`;
@@ -1361,8 +1376,45 @@ function render() {
 
 function $(sel) { return document.querySelector(sel); }
 
+/* Entrada vinda do Cockpit (menu "Ver histórico do dispositivo"): ?dispositivo=ID abre a aba Dispositivo só com esse
+   dispositivo, nos últimos 30 dias. HIPÓTESE NÃO VALIDADA: no sistema real os IDs são os mesmos nos dois lados. Aqui o
+   parque do dashboard é de exemplo (códigos de 6 dígitos sorteados) e os ids do Cockpit quase nunca existem nele; sem correspondência, escolhe um
+   dispositivo de exemplo (sempre o mesmo para o mesmo id) e avisa. */
+function aplicarDispositivoDaUrl() {
+  const pedido = new URLSearchParams(location.search).get("dispositivo");
+  if (!pedido) return;
+  const lista = MODELO.dispositivos(hoje());
+  if (!lista.length) return;
+  estado.periodo = periodoDoPreset("30d");
+  let alvo = lista.find((d) => d.id === pedido);
+  let exemplo = false;
+  if (!alvo) {
+    // só demonstração: um dispositivo que teve alguns alertas nos últimos 30 dias (3 ou mais; entre os 30 com mais falhas
+    // desses), sempre o mesmo para o mesmo id pedido
+    const { de, ate } = estado.periodo;
+    const comFalhas = MODELO.resumir(de, ate, estado.filtros, hoje(), MODELO.selecaoVazia()).topDispositivos;
+    const candidatos = (comFalhas.filter((d) => d.f >= 3).length ? comFalhas.filter((d) => d.f >= 3) : comFalhas).slice(0, 30);
+    let h = 0;
+    for (const c of pedido) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+    const escolhido = candidatos.length ? candidatos[h % candidatos.length] : null;
+    alvo = escolhido ? { id: escolhido.n } : lista[h % lista.length];
+    exemplo = true;
+  }
+  estado.selecao = { ...MODELO.selecaoVazia(), dispositivos: [alvo.id] };
+  location.hash = "#/dispositivo";
+  if (exemplo) {
+    const aviso = document.createElement("div");
+    aviso.setAttribute("role", "status");
+    aviso.style.cssText = "position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:3000;max-width:520px;padding:10px 16px;border-radius:8px;background:#1f2937;color:#fff;font:500 13px system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.25)";
+    aviso.textContent = `"${pedido}" não existe nos dados de exemplo deste dashboard. Mostrando ${alvo.id}, um dispositivo de exemplo com alertas nos últimos 30 dias.`;
+    document.body.appendChild(aviso);
+    setTimeout(() => aviso.remove(), 8000);
+  }
+}
+
 function iniciar() {
   atualizarBotoes();
+  aplicarDispositivoDaUrl();
   render();
   window.addEventListener("hashchange", () => { fecharPopovers(); render(); window.scrollTo(0, 0); });
 

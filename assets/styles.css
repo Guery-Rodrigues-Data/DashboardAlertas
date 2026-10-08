@@ -692,3 +692,101 @@ main { display: flex; flex-direction: column; gap: 16px; }
 .brow-val-pct { gap: 3px; }
 .brow-val-pct .vp-f { width: 30px; text-align: right; }
 .brow-val-pct .vp-p { width: 38px; text-align: right; }
+/* pizza com uma só fatia escolhida: sem o círculo, só a legenda; o card perde a altura da pizza */
+.pie-body.is-compacta { min-height: 0; flex: none; }
+.row-disp .pie-body.is-compacta { flex-direction: column; }
+/* legenda sozinha (pizza recolhida): vira o destaque do card, em tamanho maior */
+.pie-body.is-compacta .legend, .row-disp .pie-body.is-compacta .legend.auto { width: 100%; align-items: flex-start; }
+.pie-body.is-compacta .legend-item { padding: 8px 6px; gap: 12px; }
+.pie-body.is-compacta .legend-item .dot10, .pie-body.is-compacta .legend-item .dot6 { width: 16px; height: 16px; }
+.pie-body.is-compacta .legend-item .lt2-col { font-size: 20px; line-height: 1.2; gap: 4px; }
+.pie-body.is-compacta .legend-item .lt2-col b { display: block; font-size: 28px; line-height: 1.1; font-weight: 700; }
+.pie-body.is-compacta .legend-item .lt { font-size: 24px; gap: 12px; }
+.pie-body.is-compacta .legend-item .lt b { font-size: 24px; }
+/* ...e centralizada no meio do card (horizontal e vertical) */
+.pie-body.is-compacta, .row-disp .pie-body.is-compacta { flex: 1 1 0; align-items: center; justify-content: center; }
+.pie-body.is-compacta .legend, .row-disp .pie-body.is-compacta .legend.auto { align-items: center; flex: 0 1 auto; width: auto; }
+.pie-body.is-compacta .legend-item, .row-disp .pie-body.is-compacta .legend-item.g8 { justify-content: center; }
+.pie-body.is-compacta .legend-item .lt2-col { align-items: center; text-align: center; }
+/* rodapé de paginação sempre colado no fim do card: com poucas linhas (filtro/seleção) os cards da mesma linha mantêm o "Pág 1 / 1" alinhado */
+.card > .pagination { margin-top: auto; }
+
+/* Foco em UM dispositivo (aba Dispositivo): listas de uma linha só, então a tela encolhe para caber quase tudo sem rolar */
+#view.is-foco { --chart-h: 120px; }
+#view.is-foco .card-20 { padding: 12px 16px; gap: 8px; }
+#view.is-foco .rows { padding: 0 !important; gap: 8px; }
+#view.is-foco .row, #view.is-foco .row-disp { gap: 12px; }
+#view.is-foco .pie-body.is-compacta .legend-item .lt2-col { font-size: 16px; }
+#view.is-foco .pie-body.is-compacta .legend-item .lt2-col b { font-size: 22px; }
+
+/* Número + percentual em "pílula" (ajuste do UX): "130 [63%]" — número alinhado à direita, pílula cinza logo depois, sem parênteses */
+.brow-val.brow-val-pct, .brow.slate .brow-val.brow-val-pct, .brow.escuro .brow-val.brow-val-pct { width: 88px; justify-content: flex-start; align-items: center; gap: 6px; margin-left: 0; }
+.brow-top:has(.btn-mapa) .brow-val-pct { margin-left: 0; }
+.brow-val-pct .vp-f { width: 36px; text-align: right; flex: none; }
+.brow-val-pct .vp-f .n { color: #333; }
+.brow-val-pct .vp-p, .brow.slate .brow-val-pct .vp-p, .brow.escuro .brow-val-pct .vp-p { width: auto; flex: none; text-align: left; font-size: 12px; font-weight: 700; line-height: 1.25; color: #333; background: #f1f1f1; border-radius: 4px; padding: 2px 5px; }
+/* número + pílula colados no fim da barra (alinhados à direita, largura do conteúdo) */
+.brow-val.brow-val-pct, .brow.slate .brow-val.brow-val-pct, .brow.escuro .brow-val.brow-val-pct { width: auto; justify-content: flex-end; margin-left: auto; }
+.brow-val-pct .vp-f { width: auto; }
+
+/* Legenda do mapa (ajuste do UX): barra fina + 4 linhas com bolinha colorida e rótulo, espaçadas por igual */
+.map-card .legend-modal { padding: 14px 20px 14px 16px; border-radius: 12px; gap: 12px; }
+.legend-modal .lh { font-size: 15px; }
+.legend-modal .lb { align-items: stretch; gap: 12px; padding: 0; }
+.legend-modal .legend-grad { width: 8px; height: 108px; background: linear-gradient(180deg, #d71920 8%, #f57c00 36%, #facc15 64%, #10b981 92%); }
+.legend-modal .legend-labels { display: flex; flex-direction: column; gap: 12px; height: 108px; min-width: 0; position: static; }
+.legend-modal .legend-lvl { position: static; transform: none; height: 18px; gap: 8px; font-size: 13px; font-weight: 500; color: #6b6b6b; }
+.legend-modal .legend-lvl::before { content: ""; width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--c); }
+.legend-modal .legend-lvl:nth-child(1) { --c: #d71920; }
+.legend-modal .legend-lvl:nth-child(2) { --c: #f57c00; }
+.legend-modal .legend-lvl:nth-child(3) { --c: #facc15; }
+.legend-modal .legend-lvl:nth-child(4) { --c: #10b981; }
+
+/* sem o título "Filtros": a primeira seção abre o painel */
+.filter-modal > .flt-sec:first-child { margin-top: 8px; }
+
+/* ===== Ajustes do UX (SVGs Calendário e Filtro Alarme, 08/10) ===== */
+/* Calendário: card de 368px (mesma largura do painel de filtros), números grandes e escuros, hoje em círculo escuro, atalhos em pílulas */
+.date-modal { width: 368px; }
+.dp-cal { padding: 24px 24px 0; }
+.dp-cal-head { margin-bottom: 14px; }
+.dp-title { font-size: 18px; font-weight: 700; color: #444; }
+.dp-nav { width: 32px; height: 32px; }
+.dp-wd { font-size: 18px; font-weight: 700; color: #444; text-transform: none; padding: 6px 0; }
+.dp-grid { row-gap: 0; }
+.dp-day, .dp-blank { height: 44px; }
+.dp-day { font-size: 18px; font-weight: 700; color: #444; }
+.dp-day span { width: 38px; height: 38px; }
+.dp-day:disabled { color: #a8a8a8; }
+.dp-day.is-today span { box-shadow: inset 0 0 0 1.5px #3d3d3d; }
+.dp-day.in-range { background: #ececec; }
+.dp-day.is-start { background: linear-gradient(to right, transparent 50%, #ececec 50%); }
+.dp-day.is-end { background: linear-gradient(to left, transparent 50%, #ececec 50%); }
+.dp-day.is-start.is-end { background: none; }
+.dp-day.is-edge span { background: #3d3d3d; color: #fff; }
+.dp-presets { flex-wrap: nowrap; gap: 12px; padding: 20px 24px 20px; }
+.dp-presets button { flex: 1 1 0; height: 24px; padding: 0; font-size: 11px; font-weight: 700; color: #555; border-color: #d4d4d4; }
+.dp-presets button.is-on { background: #0b8a1e; border-color: #0b8a1e; color: #fff; }
+.date-modal .pop-foot { padding: 4px 24px 24px; border-top: 0; justify-content: space-between; }
+.date-modal .pop-foot .pop-btn:not(.primary) { border: 0; background: none; padding: 10px 0; font-size: 14px; font-weight: 700; color: #333; }
+.date-modal .pop-foot .pop-btn.primary { padding: 10px 18px; font-size: 14px; font-weight: 700; }
+/* Filtros: criticidade marcada fica cinza (não verde) e "Desmarcar Todos" em negrito vermelho */
+.flt-chip:has(input:checked) { background: #e8e8e8; border-color: #666; color: var(--flt-tinta); }
+.flt-label-row .pop-link { font-weight: 700; }
+.flt-drop .flt-check span:not(.dot):not(.cnt) { font-weight: 500; color: #555; }
+
+/* Calendário em tamanho menor (o do SVG ficou grande demais no protótipo) */
+.date-modal { width: 312px; }
+.dp-cal { padding: 16px 18px 0; }
+.dp-cal-head { margin-bottom: 8px; }
+.dp-title { font-size: 14px; }
+.dp-nav { width: 28px; height: 28px; }
+.dp-wd { font-size: 12px; padding: 4px 0; }
+.dp-day, .dp-blank { height: 34px; }
+.dp-day { font-size: 13px; }
+.dp-day span { width: 30px; height: 30px; }
+.dp-presets { gap: 8px; padding: 12px 18px 14px; }
+.dp-presets button { height: 22px; font-size: 10px; }
+.date-modal .pop-foot { padding: 2px 18px 16px; }
+.date-modal .pop-foot .pop-btn:not(.primary) { font-size: 13px; }
+.date-modal .pop-foot .pop-btn.primary { padding: 9px 16px; font-size: 13px; }
